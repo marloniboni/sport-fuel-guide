@@ -1,4 +1,8 @@
 #now comes the Homepage
 
 
-return:"Triathlon Fuel Guide"
+x = 8
+y = 4
+result = x + y
+print(result)
+
