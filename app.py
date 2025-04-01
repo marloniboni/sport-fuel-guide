@@ -1,4 +1,4 @@
 #now comes the Homepage
 
-# --- Titel ---
-st.title("Triathlon Fuel Guide")
+
+return:"Triathlon Fuel Guide"
