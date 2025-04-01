@@ -52,9 +52,10 @@ def main():
 if __name__ == "__main__":
     main()
 
-import streamlit as st
 import pandas as pd
 import numpy as np
+import zipfile
+import io
 
 # Constants for fluid intake recommendation
 FLUID_INTAKE_PER_LITER_LOST = 1.5  # Rehydrate 150% of fluid lost
@@ -90,35 +91,43 @@ def calculate_hydration_plan(fluid_loss, duration):
 # Streamlit UI
 st.title("🏃 Garmin Fluid Refuel Plan")
 
-uploaded_file = st.file_uploader("📤 Upload Your Garmin CSV File", type=["csv"])
+uploaded_file = st.file_uploader("📤 Upload Your Garmin ZIP File", type=["zip"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-    
-    # Display uploaded data
-    st.write("📊 **Preview of Uploaded Data:**", df.head())
-
-    # Ensure necessary columns exist
-    if "Fluid Loss" in df.columns and "Duration (Minutes)" in df.columns:
-        total_fluid_loss = df["Fluid Loss"].sum()
-        total_duration = df["Duration (Minutes)"].sum()
+    with zipfile.ZipFile(uploaded_file, "r") as zip_ref:
+        file_list = zip_ref.namelist()
+        csv_files = [f for f in file_list if f.endswith(".csv")]
         
-        # Generate hydration plan
-        hydration_plan = calculate_hydration_plan(total_fluid_loss, total_duration)
-        
-        # Display results
-        st.subheader("💧 Hydration Plan")
-        st.write(f"**Total Fluid Loss:** {hydration_plan['Total Fluid Loss (L)']} L")
-        st.write(f"**Fluid Loss Per Hour:** {hydration_plan['Fluid Loss per Hour (L)']} L")
-        st.write(f"**Recommended Intake:** {hydration_plan['Recommended Fluid Intake (L)']} L")
-        st.write(f"**Strategy:** {hydration_plan['Hydration Strategy']}")
-        
-        # Display hydration breakdown
-        st.subheader("📅 Hydration Schedule")
-        for time, amount in hydration_plan["Hydration Schedule"].items():
-            st.write(f"{time}: {amount} L")
-    
-    else:
-        st.error("❌ CSV file must contain 'Fluid Loss' and 'Duration (Minutes)' columns.")
+        if csv_files:
+            with zip_ref.open(csv_files[0]) as file:
+                df = pd.read_csv(file)
+                
+                # Display uploaded data
+                st.write("📊 **Preview of Uploaded Data:**", df.head())
+                
+                # Ensure necessary columns exist
+                if "Fluid Loss" in df.columns and "Duration (Minutes)" in df.columns:
+                    total_fluid_loss = df["Fluid Loss"].sum()
+                    total_duration = df["Duration (Minutes)"].sum()
+                    
+                    # Generate hydration plan
+                    hydration_plan = calculate_hydration_plan(total_fluid_loss, total_duration)
+                    
+                    # Display results
+                    st.subheader("💧 Hydration Plan")
+                    st.write(f"**Total Fluid Loss:** {hydration_plan['Total Fluid Loss (L)']} L")
+                    st.write(f"**Fluid Loss Per Hour:** {hydration_plan['Fluid Loss per Hour (L)']} L")
+                    st.write(f"**Recommended Intake:** {hydration_plan['Recommended Fluid Intake (L)']} L")
+                    st.write(f"**Strategy:** {hydration_plan['Hydration Strategy']}")
+                    
+                    # Display hydration breakdown
+                    st.subheader("📅 Hydration Schedule")
+                    for time, amount in hydration_plan["Hydration Schedule"].items():
+                        st.write(f"{time}: {amount} L")
+                
+                else:
+                    st.error("❌ CSV file must contain 'Fluid Loss' and 'Duration (Minutes)' columns.")
+        else:
+            st.error("❌ No CSV files found in the ZIP. Please check your Garmin export.")
 
 
