@@ -36,3 +36,21 @@ st.warning("Nach dem Upload bekommst du hier deine individuellen Ernährungsstra
 st.markdown("---")
 st.caption("🚀 Triathlon Fuel Guide – smarter trainieren, besser performen.")
 
+
+def main():
+    st.title("GitHub App: Select Age")
+    
+    # Dropdown selection for age
+    age = st.selectbox("Select your age:", list(range(18, 100)))
+    
+    # Display selected age
+    st.write(f"You selected: {age}")
+    
+    # GitHub connection placeholder
+    st.write("This app is connected to GitHub!")
+
+if __name__ == "__main__":
+    main()
+
+
+
