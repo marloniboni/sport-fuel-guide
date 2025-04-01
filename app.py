@@ -55,7 +55,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-
+import streamlit as st
 import pandas as pd
 import numpy as np
 from fitparse import FitFile
@@ -140,3 +140,4 @@ if uploaded_file:
             st.error("❌ FIT file must contain 'fluid_loss' and 'timestamp' fields.")
     else:
         st.error("❌ Could not parse the FIT file. Please check the format.")
+
