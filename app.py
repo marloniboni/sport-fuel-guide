@@ -15,7 +15,7 @@ damit du dein volles Potenzial im Training und Wettkampf ausschöpfen kannst.
 # --- Abschnitt: Die drei Schlüsselmetriken ---
 st.header("📊 Was wir ANALysieren")
 
-st.picture(https://symposium.org/wp-content/uploads/2023/12/Mauro-300x283.jpg)
+st.image(https://symposium.org/wp-content/uploads/2023/12/Mauro-300x283.jpg)
 
 st.markdown("### 1️⃣ Kohlenhydratverbrauch (Carbohydrate Burn)")
 st.write("Wie viele Kohlenhydrate du während der Aktivität verbrennst – abhängig von Intensität, Dauer und Trainingszone.")
