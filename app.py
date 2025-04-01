@@ -55,7 +55,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-import streamlit as st
+
 import pandas as pd
 import numpy as np
 from fitparse import FitFile
