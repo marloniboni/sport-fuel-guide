@@ -1,7 +1,7 @@
 #now comes the Homepage
 
 # --- Titel ---
-st.title("🏃‍♂️ Triathlon Fuel Guide")
+st.title("Triathlon Fuel Guide")
 st.subheader("Dein persönlicher Ernährungsassistent für Training und Wettkampf")
 
 # --- Beschreibung ---
