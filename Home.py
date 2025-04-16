@@ -3,5 +3,5 @@
 import streamlit as st
 
 # --- Titel ---
-st.title("🏡 Triathlon Fuel Guide")
+st.title("🏡 Sport Fuel Guide")
 st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
