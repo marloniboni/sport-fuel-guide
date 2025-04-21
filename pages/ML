@@ -1,1 +1,58 @@
+# app/train_model.py
 
+import streamlit as st
+import pandas as pd
+import os
+from parser import parse_tcx, extract_features
+from model import train_model
+
+DB_PATH = "data/training_data.csv"
+
+st.title("📈 Build Model from Uploaded TCX Files")
+
+uploaded_file = st.file_uploader("Upload a TCX file", type=["tcx"])
+
+st.sidebar.header("User Info")
+age = st.sidebar.number_input("Age", min_value=10, max_value=100, value=30)
+gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
+height = st.sidebar.number_input("Height (cm)", min_value=100, max_value=250, value=175)
+weight = st.sidebar.number_input("Weight (kg)", min_value=30, max_value=200, value=70)
+
+calories = st.number_input("Calories burned (ground truth)", min_value=0, value=600)
+
+if uploaded_file:
+    df = parse_tcx(uploaded_file)
+    user_meta = {
+        "age": age,
+        "gender": gender,
+        "height": height,
+        "weight": weight
+    }
+    features = extract_features(df, user_meta)
+    features['calories'] = calories
+
+    st.subheader("Extracted Ride Features")
+    st.json(features)
+
+    # Save to CSV
+    if st.button("Add to Training Dataset"):
+        df_new = pd.DataFrame([features])
+        if os.path.exists(DB_PATH):
+            df_old = pd.read_csv(DB_PATH)
+            df_all = pd.concat([df_old, df_new], ignore_index=True)
+        else:
+            df_all = df_new
+        df_all.to_csv(DB_PATH, index=False)
+        st.success("✅ Data added to training database!")
+
+# Train the model if the database exists
+if os.path.exists(DB_PATH):
+    st.subheader("Train Calorie Prediction Model")
+
+    df_train = pd.read_csv(DB_PATH)
+    st.write(f"Current dataset size: {len(df_train)} rides")
+    if st.button("Train Model"):
+        model = train_model(df_train)
+        st.success("🎉 Model trained and saved!")
+else:
+    st.info("Upload a .tcx file and add at least one ride to build the training database.")
