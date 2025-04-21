@@ -32,8 +32,37 @@ faktoren = {
 kalorien_pro_stunde = faktoren[sportart][intensität] * gewicht
 kalorien_training = kalorien_pro_stunde * (dauer / 60)
 
+import matplotlib.pyplot as plt
+
+# --- Diagramm: Kalorienbedarf ---
+labels = ["Grundumsatz", "Training", "Gesamt"]
+werte = [grundumsatz, kalorien_training, kalorien_gesamt]
+farben = ["#6C9BCF", "#FF6B6B", "#8E44AD"]
+
+fig, ax = plt.subplots()
+bars = ax.bar(labels, werte, color=farben)
+
+# Beschriftung
+ax.set_ylabel("Kalorien")
+ax.set_title("🧪 Dein Tages-Kalorienbedarf")
+for bar in bars:
+    yval = bar.get_height()
+    ax.text(bar.get_x() + bar.get_width()/2, yval + 20, f"{int(yval)}", ha="center", va="bottom")
+
+st.pyplot(fig)
+
 # --- Flüssigkeitsbedarf fürs Training (Richtwert: 0.7 Liter pro Stunde Training) ---
 fluessigkeit_training = dauer / 60 * 0.7
+
+#Kreisdiagramm Flüssigkeitsbedarf
+labels = ["Basisbedarf", "Training"]
+werte = [fluessigkeit_tag, fluessigkeit_training]
+farben = ["#5DADE2", "#76D7C4"]
+
+fig2, ax2 = plt.subplots()
+ax2.pie(werte, labels=labels, colors=farben, autopct="%1.1fL", startangle=90)
+ax2.set_title("💧 Flüssigkeitsbedarf heute")
+st.pyplot(fig2)
 
 # --- Gesamtbedarf ---
 kalorien_gesamt = grundumsatz + kalorien_training
