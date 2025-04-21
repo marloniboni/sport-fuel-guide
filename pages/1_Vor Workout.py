@@ -49,4 +49,4 @@ st.write(f"---")
 st.write(f"**Gesamter Kalorienbedarf heute**: `{int(kalorien_gesamt)} kcal`")
 st.write(f"**Gesamter Flüssigkeitsbedarf heute**: `{fluessigkeit_gesamt:.2f} Liter`")
 
-st.info("Tipp: Iss vor dem Training leicht verdauliche Kohlenhydrate und trinke gleichmäßig über den Tag verteilt.")
+st.info("Tipp: Iss vor dem Training leicht verdauliche Kohlenhydrate und trinke gleichmässig über den Tag verteilt.")
