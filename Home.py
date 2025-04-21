@@ -37,4 +37,4 @@ st.markdown("---")
 st.markdown("### 🏋️ Hast du ein Workout geplant?")
 
 if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
-    st.switch_page("pages/1_VorWorkout.py") 
+    st.switch_page("pages/1_Vor Workout.py") 
