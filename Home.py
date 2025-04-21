@@ -32,6 +32,11 @@ st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
 
 st.info("Diese Werte gelten als Basis – dein Bedarf variiert je nach Aktivität, Temperatur und Trainingsziel.")
 
+# Speichern in session_state
+st.session_state.gewicht = gewicht
+st.session_state.grundumsatz = grundumsatz
+st.session_state.fluessigkeit = fluessigkeit
+
 # --- Frage nach Workout ---
 st.markdown("---")
 st.markdown("### 🏋️ Hast du ein Workout geplant?")
