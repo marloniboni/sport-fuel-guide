@@ -7,9 +7,9 @@ st.title("🏡 Sport Fuel Guide")
 st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
 
 # Benutzerangaben
-gewicht = st.number_input("Gewicht (in kg)", min_value=30.0, max_value=200.0, value=70.0)
-groesse = st.number_input("Körpergröße (in cm)", min_value=100, max_value=220, value=175)
-alter = st.number_input("Alter (in Jahren)", min_value=10, max_value=100, value=25)
+gewicht = st.slider("Gewicht (in kg)", min_value=40, max_value=150, value=70, step=1)
+groesse = st.slider("Körpergröße (in cm)", min_value=140, max_value=210, value=175, step=1)
+alter = st.slider("Alter (in Jahren)", min_value=12, max_value=80, value=25, step=1)
 geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"])
 
 # Harris-Benedict-Formel zur Grundumsatz-Berechnung
