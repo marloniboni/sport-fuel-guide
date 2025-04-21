@@ -31,3 +31,10 @@ st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
 st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
 
 st.info("Diese Werte gelten als Basis – dein Bedarf variiert je nach Aktivität, Temperatur und Trainingsziel.")
+
+# --- Frage nach Workout ---
+st.markdown("---")
+st.markdown("### 🏋️ Hast du ein Workout geplant?")
+
+if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
+    st.switch_page("pages/1_VorWorkout.py") 
