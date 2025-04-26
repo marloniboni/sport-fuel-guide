@@ -112,6 +112,39 @@ if skip_fs:
     pass  # skip snack block
 else:
     for q in queries:
+        if not snack_query.strip():
+            st.markdown(f"**Vorschlag:** {q}")
+        # Search using Food Search v2
+        search_resp = requests.get(
+            "https://platform.fatsecret.com/rest/server.api",
+            params={'method':'foods.search','search_expression':q,'format':'json'},
+            auth=(FS_CLIENT_ID, FS_CLIENT_SECRET)
+        )
+        items = search_resp.json().get('foods',{}).get('food',[])[:5]
+        for item in items:
+            fid = item['food_id']
+            name = item['food_name']
+            # Fetch details via v4 endpoint
+            detail_resp = requests.get(
+                f"https://platform.fatsecret.com/rest/food/v4?food_id={fid}&format=json",
+                headers=headers
+            )
+            data = detail_resp.json().get('food', {})
+            servings = data.get('servings',[])
+            for serv in servings:
+                cal = serv.get('calories',0)
+                fat = serv.get('fat',0)
+                protein = serv.get('protein',0)
+                carbs = serv.get('carbohydrate',0)
+                num = required_cal / cal if cal>0 else 0
+                col1, col2 = st.columns([2,1])
+                col1.markdown(f"**{name}**: {cal} kcal/Portion · **{num:.2f} Portion(en)**")
+                dfm = pd.DataFrame({'Makronährstoff':['Fett','Protein','Kohlenhydrate'],'Gramm':[fat,protein,carbs]})
+                radar = alt.Chart(dfm).mark_area(interpolate='linear',opacity=0.5).encode(
+                    theta=alt.Theta('Makronährstoff:N',sort=['Fett','Protein','Kohlenhydrate']),
+                    radius=alt.Radius('Gramm:Q'),color='Makronährstoff:N',tooltip=['Makronährstoff','Gramm']
+                ).properties(width=150,height=150)
+                col2.altair_chart(radar, use_container_width=False)
     if not snack_query.strip(): st.markdown(f"**Vorschlag:** {q}")
     # Search using Food Search v2
     search_resp = requests.get(
