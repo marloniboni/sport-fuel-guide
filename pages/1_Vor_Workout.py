@@ -147,12 +147,19 @@ for q in queries:
         })
         # Display grams needed under chart
         col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
-        radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
-            radius=alt.Radius('Gramm:Q', scale=alt.Scale(type='linear', zero=True)),
-            color='Makronährstoff:N', tooltip=['Makronährstoff','Gramm:Q'])
-            .properties(width=150, height=150).interactive()
-        col2.altair_chart(radar,use_container_width=False)
+        radar = (
+    alt.Chart(dfm)
+       .mark_area(interpolate='linear', opacity=0.5)
+       .encode(
+           theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+           radius=alt.Radius('Gramm:Q', scale=alt.Scale(type='linear', zero=True)),
+           color='Makronährstoff:N',
+           tooltip=['Makronährstoff','Gramm:Q']
+       )
+       .properties(width=150, height=150)
+       .interactive()
+)
+col2.altair_chart(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
