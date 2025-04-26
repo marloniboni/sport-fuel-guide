@@ -161,7 +161,13 @@ for q in queries:
             alt.Chart(dfm_closed)
                .mark_line(point=True)
                .encode(
-                   theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
+                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
+                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
+                   color=alt.Color('Makronährstoff:N', legend=None),
+                   tooltip=['Makronährstoff','Gramm']
+               )
+               .interactive()
+        ),
                    radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
                    color=alt.Color('Makronährstoff:N', legend=None),
                    tooltip=['Makronährstoff','Gramm']
