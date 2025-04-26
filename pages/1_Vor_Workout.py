@@ -10,6 +10,9 @@ import gpxpy.gpx as gpx_module
 import altair as alt
 import urllib.parse
 
+# --- Candidate Snacks ---
+CANDIDATE_SNACKS = ['Clif Bar', 'Honey Stinger Gel', 'Gatorade']
+
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
 APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
