@@ -1,0 +1,6 @@
+streamlit
+pandas
+gpxpy
+requests
+
+git push origin main
