@@ -8,28 +8,7 @@ import re
 from streamlit_folium import st_folium
 import gpxpy.gpx as gpx_module
 import altair as alt
-
-# --- Nutritionix API Setup ---
-APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
-APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
-NUTRIX_SEARCH_URL = "https://trackapi.nutritionix.com/v2/search/instant"
-NUTRIX_NUTRIENTS_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
-headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY}
-
-@st.cache_data
-def search_snacks(query: str = "sports nutrition", limit: int = 20):
-    params = {'query': query, 'branded': 'true'}
-    response = requests.get(NUTRIX_SEARCH_URL, headers=headers, params=params)
-    response.raise_for_status()
-    return response.json().get('branded', [])[:limit]
-
-@st.cache_data
-def fetch_nutrition(name: str):
-    payload = {'query': name}
-    resp = requests.post(NUTRIX_NUTRIENTS_URL, headers={**headers, 'Content-Type': 'application/json'}, json=payload)
-    resp.raise_for_status()
-    foods = resp.json().get('foods', [])
-    return foods[0] if foods else None
+from requests_oauthlib import OAuth1
 
 # --- App Title & Data Check ---
 st.title("⚡ Vor-Workout Planung")
@@ -64,9 +43,9 @@ else:
 st.write(f"Dauer: {dauer} Min, Distanz: {distanz} km")
 
 # --- Compute metrics ---
-intensity = st.select_slider("Intensität", ["Leicht","Mittel","Hart"])
 facts = {"Laufen":{"Leicht":7,"Mittel":9,"Hart":12},"Radfahren":{"Leicht":5,"Mittel":7,"Hart":10},
          "Schwimmen":{"Leicht":6,"Mittel":8,"Hart":11},"Triathlon":{"Leicht":6,"Mittel":9,"Hart":13}}
+intensity = st.select_slider("Intensität", ["Leicht","Mittel","Hart"])
 cal_hr = facts[sportart][intensity] * gewicht
 cal_tot = cal_hr * (dauer/60)
 flu_tot = 0.7 * (dauer/60)
@@ -83,40 +62,6 @@ else:
 drink_i = 15
 events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
 
-# --- FastSecret API Setup for Macro Breakdown ---
-FAST_ID = os.getenv("FASTSECRET_CLIENT_ID")
-FAST_SECRET = os.getenv("FASTSECRET_CLIENT_SECRET")
-@st.cache_data
-def fetch_fastsecret_token():
-    # Obtain OAuth token
-    token_resp = requests.post(
-        "https://api.fastsecret.com/oauth/token", 
-        data={'grant_type':'client_credentials'},
-        auth=(FAST_ID, FAST_SECRET)
-    )
-    token_resp.raise_for_status()
-    return token_resp.json().get('access_token')
-
-@st.cache_data
-def fetch_food_macros(product_name):
-    token = fetch_fastsecret_token()
-    hdr = {'Authorization': f"Bearer {token}", 'Content-Type':'application/json'}
-    resp = requests.get(
-        f"https://api.fastsecret.com/v1/foods/search?query={urllib.parse.quote(product_name)}", 
-        headers=hdr
-    )
-    resp.raise_for_status()
-    items = resp.json().get('foods', [])
-    if not items:
-        return {}
-    # Take first match, get detailed info
-    food_id = items[0]['id']
-    detail = requests.get(f"https://api.fastsecret.com/v1/foods/{food_id}", headers=hdr)
-    detail.raise_for_status()
-    data = detail.json()
-    # Return macros
-    return { 'fat': data['fat_g'], 'protein': data['protein_g'], 'carbs': data['carbohydrates_g'] }
-
 # --- Intake Plan Table ---
 sched = []
 for t in events:
@@ -131,59 +76,55 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack-Optionen mit Servierberechnung ---
+# --- FatSecret API Setup ---
+FS_CLIENT_ID = "9ced8a2df62549a594700464259c95de"
+FS_CLIENT_SECRET = "367bfc354031445abe67c34459ea95d2"
+auth = OAuth1(FS_CLIENT_ID, client_secret=FS_CLIENT_SECRET)
+
+# --- Snack via FatSecret ---
 st.markdown("---")
-st.subheader("🍪 Snack-Optionen & benötigte Menge pro Intake")
-# benötigte Kalorien pro Intake-Ereignis
+st.subheader("🍪 Snack-Optionen über FatSecret API")
 required_cal = cal_tot/(dauer/eat_i)
 st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
-# Suchen nach Snacks
-eat_query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
-limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
-import math
-import matplotlib.pyplot as plt
-try:
-    snacks = search_snacks(query=eat_query, limit=limit)
-    if not snacks:
-        st.write(f"Keine Snacks gefunden für '{eat_query}'.")
+snack_query = st.text_input("Snack-Name suchen", value="Clif Bar")
+if snack_query:
+    # Search foods
+    resp = requests.get(
+        "https://platform.fatsecret.com/rest/server.api",
+        params={ 'method':'foods.search', 'search_expression': snack_query, 'format':'json' },
+        auth=auth
+    )
+    if resp.status_code == 200:
+        items = resp.json().get('foods', {}).get('food', [])
+        for item in items[:5]:
+            fid = item.get('food_id')
+            name = item.get('food_name')
+            # Fetch details
+            dresp = requests.get(
+                "https://platform.fatsecret.com/rest/server.api",
+                params={ 'method':'food.get', 'food_id': fid, 'format':'json' },
+                auth=auth
+            )
+            data = dresp.json().get('food', {})
+            servings = data.get('servings', {}).get('serving', [])
+            if isinstance(servings, dict): servings = [servings]
+            for serv in servings:
+                cal = float(serv.get('calories', 0))
+                fat = float(serv.get('fat', 0))
+                protein = float(serv.get('protein', 0))
+                carbs = float(serv.get('carbohydrate', 0))
+                num = required_cal / cal if cal>0 else 0
+                col1, col2 = st.columns([2,1])
+                col1.markdown(f"**{name}**: {cal} kcal/Portion · {num:.1f} Portion(en)")
+                dfm = pd.DataFrame({ 'Makronährstoff':['Fett','Protein','Kohlenhydrate'], 'Gramm':[fat,protein,carbs] })
+                radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
+                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate']),
+                    radius=alt.Radius('Gramm:Q'), color='Makronährstoff:N',
+                    tooltip=['Makronährstoff','Gramm']
+                ).properties(width=150, height=150)
+                col2.altair_chart(radar, use_container_width=False)
     else:
-        for item in snacks:
-            name = item['food_name']
-            brand = item.get('brand_name','Unbekannt')
-            nut = fetch_nutrition(name)
-            if not nut or not nut.get('nf_calories'):
-                continue
-            snack_cal = nut['nf_calories']
-            servings = required_cal / snack_cal
-            servings_text = f"{servings:.1f} Portion(en)"
-            serving_info = f"{nut['serving_qty']} {nut['serving_unit']}"
-            # Fetch macro breakdown
-            try:
-                macros = fetch_food_macros(name)
-            except Exception:
-                macros = {}
-            fat = macros.get('fat', 0)
-            protein = macros.get('protein', 0)
-            carbs = macros.get('carbs', 0)
-            # Layout: Text & Radar
-            col1, col2 = st.columns([3,1])
-            col1.write(f"**{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
-            # Radar Chart
-            categories = ['Fett','Protein','Kohlenhydrate']
-            values = [fat, protein, carbs]
-            angles = [n/float(len(categories))*2*math.pi for n in range(len(categories))]
-            values.append(values[0])
-            angles.append(angles[0])
-            fig = plt.figure()
-            ax = fig.add_subplot(111, polar=True)
-            ax.plot(angles, values)
-            ax.fill(angles, values, alpha=0.3)
-            ax.set_xticks(angles[:-1])
-            ax.set_xticklabels(categories)
-            ax.set_yticklabels([])
-            col2.pyplot(fig)
-except requests.HTTPError:
-    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
+        st.warning("Fehler bei FatSecret API-Abfrage.")
 
 # --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
@@ -205,8 +146,7 @@ flu_cum_int = []
 for m in mins:
     if m in drink_events: cum += flu_amt
     flu_cum_int.append(cum)
-chart_df = pd.DataFrame({ 'Minute': mins,
-    'Cal consumption': cal_cum_cons, 'Cal intake': cal_cum_int,
+chart_df = pd.DataFrame({ 'Minute': mins, 'Cal consumption': cal_cum_cons, 'Cal intake': cal_cum_int,
     'Flu consumption': flu_cum_cons, 'Flu intake': flu_cum_int })
 
 st.markdown("---")
@@ -218,9 +158,9 @@ flu_base = alt.Chart(chart_df).encode(x='Minute:Q')
 flu_line = flu_base.mark_line(color='blue').encode(y='Flu consumption:Q')
 flu_int_line = flu_base.mark_line(color='cyan', strokeDash=[4,2]).encode(y='Flu intake:Q')
 st.altair_chart(alt.hconcat(
-    (cal_line + cal_int_line).properties(width=300, title='Kalorien'),
-    (flu_line + flu_int_line).properties(width=300, title='Flüssigkeit')
-), use_container_width=True)
+    (cal_line+cal_int_line).properties(width=300,title='Kalorien'),
+    (flu_line+flu_int_line).properties(width=300,title='Flüssigkeit')
+),use_container_width=True)
 
 # --- Interactive Map & GPX Export ---
 st.markdown("---")
@@ -246,4 +186,4 @@ if 'gpx_obj' in locals():
         export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
     st.download_button("Download GPX mit Intake-Punkten", export.to_xml(), file_name="route_intake.gpx", mime="application/gpx+xml")
 
-st.info("Kompletter Workflow mit API-basierten Snack-Optionen.")
+st.info("Workflow mit FatSecret API für Snack-Suche und Visualisierung.")
