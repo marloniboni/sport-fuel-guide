@@ -152,7 +152,7 @@ for q in queries:
             alt.Chart(dfm_closed)
                .mark_area(interpolate='linear', opacity=0.3)
                .encode(
-                   theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
+                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
                    radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
                    color=alt.Color('Makronährstoff:N', legend=None)
                )
@@ -170,3 +170,25 @@ for q in queries:
         )
         spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
         col2.altair_chart(spider1, use_container_width=False)
+        # --- Map & GPX Export wieder hinzufügen ---
+        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
+        if coords:
+            folium.PolyLine(coords, color='blue', weight=3).add_to(m)
+            for t in events:
+                idx = min(int(t/dauer*len(coords)), len(coords)-1)
+                lat, lon = coords[idx]
+                col = 'orange' if t % eat_i == 0 else 'cyan'
+                folium.CircleMarker((lat, lon), radius=6, popup=f"{t} Min", color=col, fill=True).add_to(m)
+        st_folium(m, width=700, height=500)
+
+        if 'gpx_obj' in locals():
+            export = gpx_module.GPX()
+            trk = gpx_module.GPXTrack(); export.tracks.append(trk)
+            seg = gpx_module.GPXTrackSegment(); trk.segments.append(seg)
+            for lat, lon in coords:
+                seg.points.append(gpx_module.GPXTrackPoint(lat, lon))
+            for t in events:
+                idx = min(int(t/dauer*len(coords)), len(coords)-1)
+                lat, lon = coords[idx]
+                export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
+            st.download_button("Download GPX mit Intake-Punkten", export.to_xml(), file_name="route_intake.gpx", mime="application/gpx+xml")
