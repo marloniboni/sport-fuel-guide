@@ -133,9 +133,12 @@ for q in queries:
         fiber=fiber100*grams/100
         sugar100=nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
         sugar=sugar100*grams/100
+                # include fat, fiber, sugar, protein in macro spider
+        fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
+        fat = fat100 * grams/100
         df_macro = pd.DataFrame({
-            'Makronährstoff': ['Ballaststoffe','Zucker','Protein'],
-            'Gramm': [fiber, sugar, prot]
+            'Makronährstoff': ['Fett','Ballaststoffe','Zucker','Protein'],
+            'Gramm': [fat, fiber, sugar, prot]
         })
         col1, col2 = st.columns([2,1])
         if img_url: col1.image(img_url, width=80)
