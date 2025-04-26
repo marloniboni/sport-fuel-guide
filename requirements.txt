@@ -5,7 +5,7 @@ requests
 folium
 streamlit-folium
 matplotlib
-pip install noms
+noms
 
 
 # Optional: fixe Versionen für Reproduzierbarkeit
