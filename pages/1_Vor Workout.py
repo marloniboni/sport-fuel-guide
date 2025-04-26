@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import gpxpy
 import requests
 import os
 from datetime import timedelta
@@ -49,12 +50,27 @@ gewicht = st.session_state.gewicht
 grundumsatz = st.session_state.grundumsatz
 fluessigkeit_tag = st.session_state.fluessigkeit
 
-# --- Trainingsdaten abfragen ---
-st.markdown("### 🏋️ Was hast du geplant?")
-
+# --- Trainingsart wählen ---
 sportart = st.selectbox("Sportart", ["Laufen", "Radfahren", "Schwimmen", "Triathlon"])
-dauer = st.slider("Dauer des Trainings (in Minuten)", 15, 300, 60, step=5)
-distanz = st.number_input("Geplante Distanz (in km)", min_value=0.0, value=10.0)
+
+# --- GPX-Upload (optional) ---
+uploaded_file = st.file_uploader("GPX-Datei hochladen (Komoot/Strava)", type="gpx")
+if uploaded_file:
+    try:
+        gpx = gpxpy.parse(uploaded_file.read().decode("utf-8"))
+        total_seconds = gpx.get_duration() or 0
+        dauer = total_seconds / 60
+        distanz = (gpx.length_3d() or 0) / 1000
+        st.success(f"GPX erkannt: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
+    except Exception:
+        st.error("Fehler beim Parsen der GPX-Datei. Bitte überprüfe die Datei.")
+        st.stop()
+else:
+    st.markdown("### 🏋️ Was hast du geplant?")
+    dauer = st.slider("Dauer des Trainings (in Minuten)", 15, 300, 60, step=5)
+    distanz = st.number_input("Geplante Distanz (in km)", min_value=0.0, value=10.0)
+
+# --- Intensität wählen ---
 intensitaet = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
 
 # --- Kalorienverbrauch schätzen ---
@@ -94,7 +110,7 @@ st.write(f"Portion: {snack['serving_qty']} {snack['serving_unit']} (~{int(snack[
 # --- Verlauf visualisieren ---
 st.markdown("---")
 st.subheader("📊 Verlauf von Kalorien und Flüssigkeit während des Trainings")
-minutes = list(range(0, dauer + 1))
+minutes = list(range(0, int(dauer) + 1))
 cal_per_min = kalorien_pro_stunde / 60
 fluid_per_min = 0.7 / 60
 
