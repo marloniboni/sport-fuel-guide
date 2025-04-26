@@ -154,7 +154,7 @@ for q in queries:
                .mark_area(interpolate='linear', opacity=0.5)
                .encode(
                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
-                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, dfm['Gramm'].max()])),
+                   radius=alt.Radius('Gramm:Q'),
                    color='Makronährstoff:N',
                    tooltip=['Makronährstoff','Gramm:Q']
                )
