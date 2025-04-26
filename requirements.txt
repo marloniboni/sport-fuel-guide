@@ -3,4 +3,4 @@ pandas
 gpxpy
 requests
 
-git push origin main
+Add requirements.txt with all dependencies
