@@ -147,20 +147,29 @@ for q in queries:
         })
         # Display grams needed under chart
         col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
-        # Build the interactive radar (Smart-Spider) chart
-        radar = (
+                # Build the interactive radar (Smart-Spider) chart
+        area = (
             alt.Chart(dfm)
-             .mark_area(interpolate='linear', opacity=0.5)
-             .encode(
-                 theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
-                 radius=alt.Radius('Gramm:Q'),
-                 color='Makronährstoff:N',
-                 tooltip=['Makronährstoff','Gramm:Q']
-             )
-             .properties(width=150, height=150)
-             .interactive()
+               .mark_area(interpolate='linear', opacity=0.3)
+               .encode(
+                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+                   radius=alt.Radius('Gramm:Q'),
+                   color=alt.Color('Makronährstoff:N', legend=None)
+               )
         )
-        col2.altair_chart(radar, use_container_width=False)
+        line = (
+            alt.Chart(dfm)
+               .mark_line(point=True)
+               .encode(
+                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+                   radius=alt.Radius('Gramm:Q'),
+                   color=alt.Color('Makronährstoff:N', legend=None),
+                   tooltip=['Makronährstoff','Gramm:Q']
+               )
+               .interactive()
+        )
+        radar = (area + line).properties(width=150, height=150)
+        col2.altair_chart(radar, use_container_width=False)(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
