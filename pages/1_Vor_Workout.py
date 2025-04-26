@@ -1,44 +1,18 @@
 import streamlit as st
 import pandas as pd
 import requests
-import os
 import gpxpy
 import folium
-import re
-from streamlit_folium import st_folium
 import altair as alt
+from streamlit_folium import st_folium
 import gpxpy.gpx as gpx_module
+import noms
 
-# --- FatSecret OAuth2 Token Fetch ---
-FS_CLIENT_ID = "9ced8a2df62549a594700464259c95de"
-FS_CLIENT_SECRET = "367bfc354031445abe67c34459ea95d2"
-@st.cache_data
-def fetch_fs_token():
-    """
-    Fetch OAuth2 Bearer token from FatSecret Platform using correct endpoint.
-    """
-    # Correct OAuth2 token endpoint
-    token_url = "https://oauth.fatsecret.com/connect/token"
-    # Use HTTP Basic Auth for client credentials
-    resp = requests.post(
-        token_url,
-        auth=(FS_CLIENT_ID, FS_CLIENT_SECRET),
-        data={'grant_type': 'client_credentials'}
-    )
-    if resp.status_code != 200:
-        st.error(f"Token-Error {resp.status_code}: {resp.text}")
-        return None
-    try:
-        data = resp.json()
-    except ValueError:
-        st.error(f"Token-JSON-Decode-Fehler: {resp.text}")
-        return None
-    token = data.get('access_token')
-    if not token:
-        st.error(f"Kein access_token im JSON: {data}")
-    return token
+# --- USDA Noms Client Setup ---
+API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
+client = noms.Client(API_KEY)
 
-# --- App Title & Data Check ---
+# --- App Title & User Data Check ---
 st.title("⚡ Vor-Workout Planung")
 if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
@@ -48,191 +22,128 @@ grundumsatz = st.session_state.grundumsatz
 fluessigkeit_tag = st.session_state.fluessigkeit
 sportart = st.selectbox("Sportart", ["Laufen","Radfahren","Schwimmen","Triathlon"])
 
-# --- GPX Parsing Helper ---
+# --- GPX Parsing ---
 def parse_gpx(text):
     g = gpxpy.parse(text)
-    secs = g.get_duration() or 0
-    dist = (g.length_3d() or 0) / 1000
-    pts = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
-    return secs/60, dist, pts, g
+    duration = (g.get_duration() or 0)/60
+    dist = (g.length_3d() or 0)/1000
+    coords = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
+    return duration, dist, coords, g
 
-# --- Input Mode: File or Manual ---
-mode = st.radio("Datenquelle", ["GPX-Datei", "Manuelle Eingabe"])
-if mode == "GPX-Datei":
+mode = st.radio("Datenquelle", ["GPX-Datei", "Manuell"])
+if mode=="GPX-Datei":
     up = st.file_uploader("GPX-Datei hochladen", type='gpx')
     if not up:
-        st.error("Bitte lade eine GPX-Datei hoch.")
+        st.error("Bitte GPX-Datei wählen.")
         st.stop()
     dauer, distanz, coords, gpx_obj = parse_gpx(up.read().decode())
 else:
-    dauer = st.slider("Dauer (Min)", 15, 300, 60)
-    distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
-    coords = []
-st.write(f"Dauer: {dauer} Min, Distanz: {distanz} km")
+    dauer = st.slider("Dauer (Min)", 15,300,60)
+    distanz = st.number_input("Distanz (km)",0.0,100.0,10.0)
+    coords=[]
+st.write(f"Dauer: {dauer:.0f} Min, Distanz: {distanz:.2f} km")
 
-# --- Compute metrics ---
-facts = {
-    "Laufen": {"Leicht":7,"Mittel":9,"Hart":12},
-    "Radfahren": {"Leicht":5,"Mittel":7,"Hart":10},
-    "Schwimmen": {"Leicht":6,"Mittel":8,"Hart":11},
-    "Triathlon": {"Leicht":6,"Mittel":9,"Hart":13}
-}
+# --- Metrics Computation ---
+facts={"Laufen":{"Leicht":7,"Mittel":9,"Hart":12},
+       "Radfahren":{"Leicht":5,"Mittel":7,"Hart":10},
+       "Schwimmen":{"Leicht":6,"Mittel":8,"Hart":11},
+       "Triathlon":{"Leicht":6,"Mittel":9,"Hart":13}}
 intensity = st.select_slider("Intensität", ["Leicht","Mittel","Hart"])
-cal_hr = facts[sportart][intensity] * gewicht
-cal_tot = cal_hr * (dauer/60)
-flu_tot = 0.7 * (dauer/60)
-
-# --- Schedule Intake ---
-if dauer <= 60:
-    eat_i = 20
-elif dauer <= 120:
-    eat_i = 30
-elif dauer <= 180:
-    eat_i = 45
-else:
-    eat_i = 60
+cal_hr = facts[sportart][intensity]*gewicht
+cal_burn = cal_hr*(dauer/60)
+flu_loss = 0.7*(dauer/60)
+# Schedule intake intervals
+eat_i = 20 if dauer<=60 else 30 if dauer<=120 else 45 if dauer<=180 else 60
 drink_i = 15
-events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
+events=sorted(set(range(eat_i,int(dauer)+1,eat_i))|set(range(drink_i,int(dauer)+1,drink_i)))
 
 # --- Intake Plan Table ---
-sched = []
+sched=[]
 for t in events:
-    row = {'Minute': t}
-    if t % eat_i == 0:
-        row['Essen (kcal)'] = int(cal_tot/(dauer/eat_i))
-    if t % drink_i == 0:
-        row['Trinken (L)'] = round(flu_tot/(dauer/drink_i), 2)
-    sched.append(row)
-df_sched = pd.DataFrame(sched).set_index('Minute')
+    r={ 'Minute':t }
+    if t%eat_i==0: r['Essen (kcal)']=int(cal_burn/(dauer/eat_i))
+    if t%drink_i==0: r['Trinken (L)']=round(flu_loss/(dauer/drink_i),2)
+    sched.append(r)
+df_sched=pd.DataFrame(sched).set_index('Minute')
 st.markdown("---")
-st.subheader("⏰ Intake-Plan: Essen & Trinken")
+st.subheader("⏰ Intake-Plan")
 st.table(df_sched)
 
-# --- Snack via FatSecret v4 API ---
+# --- Snack Suggestions via USDA Noms ---
 st.markdown("---")
-st.subheader("🍪 Snack-Optionen über FatSecret API")
-required_cal = cal_tot/(dauer/eat_i)
-st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
-snack_query = st.text_input("Snack-Name suchen (optional)", value="")
-default_snacks = ["Clif Bar","Honey Stinger Gel","Gatorade","Powerbar","Isostar Riegel"]
-queries = [snack_query] if snack_query.strip() else default_snacks
-# Get OAuth token and header
-token = fetch_fs_token()
-if token:
-    headers_fs = {'Authorization': f"Bearer {token}"}
-    for q in queries:
-        if not snack_query.strip():
-            st.markdown(f"**Vorschlag:** {q}")
-        # Search foods
-        search_resp = requests.get(
-            "https://platform.fatsecret.com/rest/server.api",
-            params={'method':'foods.search','search_expression':q,'format':'json'},
-            auth=(FS_CLIENT_ID, FS_CLIENT_SECRET)
-        )
-        items = search_resp.json().get('foods',{}).get('food',[])[:5]
-        for item in items:
-            fid = item['food_id']
-            name = item['food_name']
-            # Detail via v4 endpoint
-            detail_resp = requests.get(
-                f"https://platform.fatsecret.com/rest/food/v4?food_id={fid}&format=json",
-                headers=headers_fs
-            )
-            data = detail_resp.json().get('food', {})
-            servings = data.get('servings', [])
-            for serv in servings:
-                cal = serv.get('calories', 0)
-                fat = serv.get('fat', 0)
-                protein = serv.get('protein', 0)
-                carbs = serv.get('carbohydrate', 0)
-                num = required_cal / cal if cal > 0 else 0
-                col1, col2 = st.columns([2,1])
-                col1.markdown(f"**{name}**: {cal:.0f} kcal/Portion · **{num:.2f} Portion(en)**")
-                dfm = pd.DataFrame({
-                    'Makronährstoff': ['Fett', 'Protein', 'Kohlenhydrate'],
-                    'Gramm': [fat, protein, carbs]
-                })
-                radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
-                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate']),
-                    radius=alt.Radius('Gramm:Q'), color='Makronährstoff:N', tooltip=['Makronährstoff', 'Gramm']
-                ).properties(width=150, height=150)
-                col2.altair_chart(radar, use_container_width=False)
-else:
-    st.warning("Konnte kein Access Token abrufen. Snacks werden übersprungen.")
+st.subheader("🍪 Snack-Vorschläge (USDA)")
+required_cal=cal_burn/(dauer/eat_i)
+st.write(f"Benötigte Kalorien pro Intake: **{required_cal:.0f} kcal**")
+# search field
+txt=st.text_input("Snack suchen (optional)")
+defaults=["Raw Broccoli","Banana","Almonds","Greek Yogurt","Granola Bar"]
+queries=[txt] if txt.strip() else defaults
+for q in queries:
+    if not txt.strip(): st.markdown(f"**Vorschlag:** {q}")
+    df=client.search_query(q)
+    # top 5
+    for idx, row in df.head(5).iterrows():
+        fid=str(row['ID'])
+        # fetch 100g data
+        food_list=client.get_foods({fid:100})
+        if not food_list: continue
+        food=food_list[0]
+        cal100=food.calories
+        grams=required_cal*100/cal100 if cal100>0 else 0
+        fat=food.fat*grams/100
+        protein=food.protein*grams/100
+        carbs=food.carbs*grams/100
+        col1,col2=st.columns([2,1])
+        col1.markdown(f"**{food.name}**: {cal100:.0f} kcal/100g · **{grams:.0f}g**")
+        dfm=pd.DataFrame({'Makronährstoff':['Fett','Protein','Kohlenhydrate'],
+                          'Gramm':[fat,protein,carbs]})
+        radar=alt.Chart(dfm).mark_area(interpolate='linear',opacity=0.5).encode(
+            theta=alt.Theta('Makronährstoff:N',sort=['Fett','Protein','Kohlenhydrate']),
+            radius=alt.Radius('Gramm:Q'),color='Makronährstoff:N',tooltip=['Makronährstoff','Gramm']
+        ).properties(width=150,height=150)
+        col2.altair_chart(radar,use_container_width=False)
 
-# --- Build time series for cumulative charts ---
-mins = list(range(0, int(dauer)+1))
-c_rate = cal_hr/60
-f_rate = 0.7/60
-cal_cum_cons = [c_rate * m for m in mins]
-flu_cum_cons = [f_rate * m for m in mins]
-eat_events = set(range(eat_i, int(dauer)+1, eat_i))
-drink_events = set(range(drink_i, int(dauer)+1, drink_i))
-cal_amt = cal_tot/len(eat_events) if eat_events else 0
-flu_amt = flu_tot/len(drink_events) if drink_events else 0
-cum = 0
-cal_cum_int = []
-for m in mins:
-    if m in eat_events:
-        cum += cal_amt
-    cal_cum_int.append(cum)
-cum = 0
-flu_cum_int = []
-for m in mins:
-    if m in drink_events:
-        cum += flu_amt
-    flu_cum_int.append(cum)
-chart_df = pd.DataFrame({
-    'Minute': mins,
-    'Cal consumption': cal_cum_cons,
-    'Cal intake': cal_cum_int,
-    'Flu consumption': flu_cum_cons,
-    'Flu intake': flu_cum_int
-})
-
+# --- Cumulative Charts ---
+mins=list(range(int(dauer)+1))
+c_rate=cal_hr/60
+f_rate=0.7/60
+cal_cons=[c_rate*m for m in mins]
+flu_cons=[f_rate*m for m in mins]
+cal_int=[sum(df_sched.loc[:m,['Essen (kcal)']].fillna(0).values.flatten()) for m in mins]
+flu_int=[sum(df_sched.loc[:m,['Trinken (L)']].fillna(0).values.flatten()) for m in mins]
+chart_df=pd.DataFrame({'Minute':mins,'Cal cons':cal_cons,'Cal intake':cal_int,
+                       'Flu cons':flu_cons,'Flu intake':flu_int})
 st.markdown("---")
-st.subheader("📊 Kumulative Verbrauch vs. Zufuhr")
-cal_base = alt.Chart(chart_df).encode(x='Minute:Q')
-cal_line = cal_base.mark_line(color='orange').encode(y='Cal consumption:Q')
-cal_int_line = cal_base.mark_line(color='red', strokeDash=[4,2]).encode(y='Cal intake:Q')
-flu_base = alt.Chart(chart_df).encode(x='Minute:Q')
-flu_line = flu_base.mark_line(color='blue').encode(y='Flu consumption:Q')
-flu_int_line = flu_base.mark_line(color='cyan', strokeDash=[4,2]).encode(y='Flu intake:Q')
-st.altair_chart(alt.hconcat(
-    (cal_line + cal_int_line).properties(width=300, title='Kalorien'),
-    (flu_line + flu_int_line).properties(width=300, title='Flüssigkeit')
-), use_container_width=True)
+st.subheader("📊 Verbrauch & Zufuhr")
+cal_chart=(alt.Chart(chart_df).mark_line(color='orange').encode(x='Minute:Q',y='Cal cons:Q')+ 
+           alt.Chart(chart_df).mark_line(color='red',strokeDash=[4,2]).encode(x='Minute:Q',y='Cal intake:Q'))
+flu_chart=(alt.Chart(chart_df).mark_line(color='blue').encode(x='Minute:Q',y='Flu cons:Q')+
+           alt.Chart(chart_df).mark_line(color='cyan',strokeDash=[4,2]).encode(x='Minute:Q',y='Flu intake:Q'))
+st.altair_chart(alt.hconcat(cal_chart.properties(width=300,title='Kalorien'),
+                            flu_chart.properties(width=300,title='Flüssigkeit')),use_container_width=True)
 
-# --- Interactive Map & GPX Export ---
+# --- Map & GPX Export ---
 st.markdown("---")
 st.subheader("🗺️ Route & Intake-Punkte")
-m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
+m=folium.Map(location=coords[0] if coords else [0,0],zoom_start=13)
 if coords:
-    folium.PolyLine(coords, color='blue', weight=3).add_to(m)
+    folium.PolyLine(coords,color='blue',weight=3).add_to(m)
     for t in events:
-        idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        color = 'orange' if t in eat_events else 'cyan'
-        folium.CircleMarker(location=(lat, lon), radius=6, popup=f"{t} Min", color=color, fill=True).add_to(m)
-st_folium(m, width=700, height=500)
+        idx=min(int(t/dauer*len(coords)),len(coords)-1)
+        lat,lon=coords[idx]
+        col='orange' if t%eat_i==0 else 'cyan'
+        folium.CircleMarker((lat,lon),radius=6,popup=f"{t} Min",color=col,fill=True).add_to(m)
+st_folium(m,width=700,height=500)
 
 if 'gpx_obj' in locals():
-    export = gpx_module.GPX()
-    trk = gpx_module.GPXTrack()
-    export.tracks.append(trk)
-    seg = gpx_module.GPXTrackSegment()
-    trk.segments.append(seg)
-    for lat, lon in coords:
-        seg.points.append(gpx_module.GPXTrackPoint(lat, lon))
+    export=gpx_module.GPX()
+    trk=gpx_module.GPXTrack();export.tracks.append(trk)
+    seg=gpx_module.GPXTrackSegment();trk.segments.append(seg)
+    for lat,lon in coords: seg.points.append(gpx_module.GPXTrackPoint(lat,lon))
     for t in events:
-        idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
-    st.download_button(
-        "Download GPX mit Intake-Punkten",
-        export.to_xml(),
-        file_name="route_intake.gpx",
-        mime="application/gpx+xml"
-    )
+        idx=min(int(t/dauer*len(coords)),len(coords)-1)
+        lat,lon=coords[idx]
+        export.waypoints.append(gpx_module.GPXWaypoint(lat,lon,name=f"{t} Min"))
+    st.download_button("Download GPX mit Intake-Punkten",export.to_xml(),file_name="route_intake.gpx",mime="application/gpx+xml")
 
-st.info("Workflow mit FatSecret v4 API und Altair-Visualisierung.")
+st.info("USDA-Noms basierte Snack-Suche und Makro-Visualisierung.")
