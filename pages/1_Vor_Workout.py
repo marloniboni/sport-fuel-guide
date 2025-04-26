@@ -45,8 +45,7 @@ def parse_gpx(text):
     g = gpxpy.parse(text)
     secs = g.get_duration() or 0
     dist = (g.length_3d() or 0) / 1000
-    pts = [(pt.latitude, pt.longitude)
-           for tr in g.tracks for seg in tr.segments for pt in seg.points]
+    pts = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
     return secs/60, dist, pts, g
 
 # --- Input Mode: File or Manual ---
@@ -84,9 +83,9 @@ else:
 drink_i = 15
 
 events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
-sched=[]
+sched = []
 for t in events:
-    row={'Minute':t}
+    row = {'Minute': t}
     if t % eat_i == 0:
         sn = recommend_snack(cal_tot/(dauer/eat_i))
         row['Essen'] = f"{sn['name']} ({int(sn['calories'])} kcal)"
@@ -95,81 +94,93 @@ for t in events:
     sched.append(row)
 df_sched = pd.DataFrame(sched).set_index('Minute')
 
-# Intake plan table
+# --- Intake plan table ---
 st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Build time series with net series ---
+# --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
-# consumption per minute
-cal_cons = [cal_hr/60 for _ in mins]
-flu_cons = [0.7/60 for _ in mins]
-# net change per minute
-df_time = pd.DataFrame({'Minute': mins})
-df_time['Calorie net'] = df_time['Minute'].apply(lambda m: -cal_cons[m] + (cal_tot/(dauer/eat_i) if (m in range(eat_i, int(dauer)+1, eat_i)) else 0))
-df_time['Fluid net'] = df_time['Minute'].apply(lambda m: -flu_cons[m] + (flu_tot/(dauer/drink_i) if (m in range(drink_i, int(dauer)+1, drink_i)) else 0))
-# cumulative
-df_time['Calorie reserve'] = df_time['Calorie net'].cumsum()
-df_time['Fluid reserve'] = df_time['Fluid net'].cumsum()
-
-# --- Visualisierung: Verbrauch & Intake Seite an Seite ---
-st.markdown("---")
-st.subheader("📊 Verbrauch vs. Aufnahme")
-# Minuten und Intake Events
+c_rate = cal_hr/60
+f_rate = 0.7/60
+# cumulative consumption
+cal_cum_cons = [c_rate * m for m in mins]
+flu_cum_cons = [f_rate * m for m in mins]
+# intake events
 eat_events = set(range(eat_i, int(dauer)+1, eat_i))
 drink_events = set(range(drink_i, int(dauer)+1, drink_i))
-
-# DataFrame für Charts
+# amount per event
+cal_amt = cal_tot/len(eat_events) if eat_events else 0
+flu_amt = flu_tot/len(drink_events) if drink_events else 0
+# cumulative intake
+cum = 0
+cal_cum_int = []
+for m in mins:
+    if m in eat_events:
+        cum += cal_amt
+    cal_cum_int.append(cum)
+cum = 0
+flu_cum_int = []
+for m in mins:
+    if m in drink_events:
+        cum += flu_amt
+    flu_cum_int.append(cum)
+# DataFrame
 chart_df = pd.DataFrame({
     'Minute': mins,
-    'Calorie consumption': [cal_hr/60 * m for m in mins],
-    'Calorie intake': [cal_tot/len(eat_events) if m in eat_events else 0 for m in mins],
-    'Fluid consumption': [0.7/60 * m for m in mins],
-    'Fluid intake': [flu_tot/len(drink_events) if m in drink_events else 0 for m in mins]
+    'Cal cum cons': cal_cum_cons,
+    'Cal cum int': cal_cum_int,
+    'Flu cum cons': flu_cum_cons,
+    'Flu cum int': flu_cum_int
 })
 
-# Kalorien Chart
+# --- Two charts side by side ---
+st.markdown("---")
+st.subheader("📊 Kumulative Verbrauch vs. Zufuhr")
+# Calorie Chart
 cal_base = alt.Chart(chart_df).encode(x='Minute:Q')
-cal_line = cal_base.mark_line(color='orange').encode(y='Calorie consumption:Q')
-cal_bar = cal_base.mark_bar(opacity=0.5, color='red').encode(y='Calorie intake:Q')
-cal_chart = (cal_line + cal_bar).properties(width=300, height=250, title='Kalorien')
-
-# Flüssigkeit Chart
+cal_line = cal_base.mark_line(color='orange').encode(y='Cal cum cons:Q')
+cal_int_line = cal_base.mark_line(color='red', strokeDash=[4,2]).encode(y='Cal cum int:Q')
+cal_viz = (cal_line + cal_int_line).properties(width=300, height=250, title='Kalorien')
+# Fluid Chart
 flu_base = alt.Chart(chart_df).encode(x='Minute:Q')
-flu_line = flu_base.mark_line(color='blue').encode(y='Fluid consumption:Q')
-flu_bar = flu_base.mark_bar(opacity=0.5, color='cyan').encode(y='Fluid intake:Q')
-flu_chart = (flu_line + flu_bar).properties(width=300, height=250, title='Flüssigkeit')
+flu_line = flu_base.mark_line(color='black').encode(y='Flu cum cons:Q')
+flu_int_line = flu_base.mark_line(color='cyan', strokeDash=[4,2]).encode(y='Flu cum int:Q')
+flu_viz = (flu_line + flu_int_line).properties(width=300, height=250, title='Flüssigkeit')
+# Combine
+st.altair_chart(alt.hconcat(cal_viz, flu_viz), use_container_width=True)
 
-# Charts horizontal anordnen
-combined = alt.hconcat(cal_chart, flu_chart)
-st.altair_chart(combined, use_container_width=True)
-
-# --- Interactive Map & GPX Export --- & GPX Export ---
+# --- Interactive Map & GPX Export ---
 st.markdown("---")
 st.subheader("🗺️ Route & Intake-Punkte")
 m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
 if coords:
-    folium.PolyLine(coords, color='blue', weight=3).add_to(m)
+    # Route in dark gray
+    folium.PolyLine(coords, color='darkgray', weight=3).add_to(m)
+    # Intake markers: orange for eat, cyan for drink
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat,lon = coords[idx]
-        color = 'orange' if (t % eat_i == 0) else 'blue'
-        folium.CircleMarker(location=(lat,lon), radius=6,
+        lat, lon = coords[idx]
+        if t in eat_events:
+            color = 'orange'
+        elif t in drink_events:
+            color = 'cyan'
+        folium.CircleMarker(location=(lat, lon), radius=6,
                             popup=f"{t} Min", color=color, fill=True).add_to(m)
 st_folium(m, width=700, height=500)
 
-# GPX export
+# --- GPX export ---
 if 'gpx_obj' in locals():
     export = gpx_module.GPX()
     trk = gpx_module.GPXTrack(); export.tracks.append(trk)
     seg = gpx_module.GPXTrackSegment(); trk.segments.append(seg)
-    for lat,lon in coords: seg.points.append(gpx_module.GPXTrackPoint(lat,lon))
+    for lat, lon in coords:
+        seg.points.append(gpx_module.GPXTrackPoint(lat, lon))
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat,lon = coords[idx]
-        export.waypoints.append(gpx_module.GPXWaypoint(lat,lon,name=f"{t} Min"))
+        lat, lon = coords[idx]
+        export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
     st.download_button("Download GPX mit Intake-Punkten", export.to_xml(),
                        file_name="route_intake.gpx", mime="application/gpx+xml")
 
-st.info("Netto-Verlauf und exportierbare GPX-Datei mit Intake-Punkten.")
+st.info("Kumulative Charts und differenzierte Map-Marker für Essen & Trinken.")
