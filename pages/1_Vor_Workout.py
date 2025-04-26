@@ -145,6 +145,10 @@ for q in queries:
         fiber100 = nutrients.get('Fiber, total dietary') or nutrients.get('Dietary fiber') or 0
         sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
         prot100 = nutrients.get('Protein') or 0
+        # Debug: output raw nutrient values and cal100
+        col2.write("Nutrienten-Rohdaten:")
+        col2.write(nutrients)
+        col2.write(f"cal100: {cal100}, grams: {grams:.2f}")
         # scale per needed grams
         sat_fat = sat_fat100 * grams/100
         mono_fat = mono_fat100 * grams/100
