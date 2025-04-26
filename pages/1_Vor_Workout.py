@@ -141,9 +141,18 @@ for q in queries:
         if img_url: col1.image(img_url, width=80)
         col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
         dfm = df_macro.copy()
-        dfm['Gramm'] = dfm['Gramm'].astype(float)
-        col2.write(dfm)
-        area1 = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.3).encode(
+        # close the loop by repeating first row at end for radar
+        dfm_closed = pd.concat([dfm, dfm.iloc[[0]]], ignore_index=True)
+        # determine max for consistent scale
+        max_val = dfm['Gramm'].max()
+        # Debug display closed DF
+        col2.write("DFM for radar:")
+        col2.write(dfm_closed)
+        area1 = alt.Chart(dfm_closed).mark_area(interpolate='linear', opacity=0.3).encode(
+            theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
+            radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
+            color=alt.Color('Makronährstoff:N', legend=None)
+        )(dfm).mark_area(interpolate='linear', opacity=0.3).encode(
             theta=alt.Theta('Makronährstoff:N', sort=dfm['Makronährstoff'].tolist()),
             radius=alt.Radius('Gramm:Q', scale=alt.Scale(zero=True)),
             color=alt.Color('Makronährstoff:N', legend=None)
