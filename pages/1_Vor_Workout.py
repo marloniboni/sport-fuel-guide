@@ -8,6 +8,30 @@ from streamlit_folium import st_folium
 import gpxpy.gpx as gpx_module
 import os
 
+# --- Page config & dark theme CSS ---
+st.set_page_config(page_title="Vor-Workout Planung", layout="wide", initial_sidebar_state="collapsed")
+st.markdown("""
+<style>
+body {
+    background-color: #0e0e10;
+    color: #e0e0e0;
+}
+.stButton>button {
+    background-color: #1f1f23;
+    color: #e0e0e0;
+    border-radius: 8px;
+    border: 1px solid #333;
+}
+.stSlider>div>div>div>div {
+    background: #1f1f23;
+}
+.stSelectbox>div>div>div {
+    background: #1f1f23;
+    color: #e0e0e0;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --- USDA FoodData Central API Setup ---
 FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 
@@ -70,7 +94,7 @@ else:
     dauer = st.slider("Dauer (Min)",15,300,60)
     distanz = st.number_input("Distanz (km)",0.0,100.0,10.0)
     coords = []
-st.write(f"Dauer: {dauer:.0f} Min, Distanz: {distanz:.2f} km")
+st.markdown(f"**Dauer:** {dauer:.0f} Min  |  **Distanz:** {distanz:.2f} km")
 
 # --- Compute Metrics ---
 facts={"Laufen":{"Leicht":7,"Mittel":9,"Hart":12},"Radfahren":{"Leicht":5,"Mittel":7,"Hart":10},
@@ -133,7 +157,6 @@ for q in queries:
         fiber=fiber100*grams/100
         sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or nutrients.get('Carbohydrate, by difference') or 0
         sugar=sugar100*grams/100
-                # include fat, fiber, sugar, protein in macro spider
         fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
         fat = fat100 * grams/100
         df_macro = pd.DataFrame({
@@ -144,41 +167,37 @@ for q in queries:
         if img_url: col1.image(img_url, width=80)
         col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
         dfm = df_macro.copy()
-        # close the loop for radar
         dfm_closed = pd.concat([dfm, dfm.iloc[[0]]], ignore_index=True)
         max_val = dfm['Gramm'].max()
         col2.write(dfm_closed)
         area1 = (
             alt.Chart(dfm_closed)
-               .mark_area(interpolate='linear', opacity=0.3)
+               .mark_area(interpolate='linear', opacity=0.3, color='#00ffff')
                .encode(
                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
                    radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-                   color=alt.Color('Makronährstoff:N', legend=None)
                )
         )
         line1 = (
             alt.Chart(dfm_closed)
-               .mark_line(point=True)
+               .mark_line(point=True, color='#ff0066')
                .encode(
                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
                    radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-                   color=alt.Color('Makronährstoff:N', legend=None),
                    tooltip=['Makronährstoff','Gramm']
                )
                .interactive()
         )
-        spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
+        spider1 = alt.layer(area1, line1).properties(width=250, height=250, title='Makronährstoffe')
         col2.altair_chart(spider1, use_container_width=False)
-        # --- Map & GPX Export wieder hinzufügen ---
-        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
+        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13, tiles='CartoDB dark_matter')
         if coords:
-            folium.PolyLine(coords, color='blue', weight=3).add_to(m)
+            folium.PolyLine(coords, color='#00ffff', weight=4).add_to(m)
             for t in events:
                 idx = min(int(t/dauer*len(coords)), len(coords)-1)
                 lat, lon = coords[idx]
-                col = 'orange' if t % eat_i == 0 else 'cyan'
-                folium.CircleMarker((lat, lon), radius=6, popup=f"{t} Min", color=col, fill=True).add_to(m)
+                col = '#ff0066' if t % eat_i == 0 else '#66ffff'
+                folium.CircleMarker((lat, lon), radius=8, popup=f"{t} Min", color=col, fill=True).add_to(m)
         st_folium(m, width=700, height=500)
 
         if 'gpx_obj' in locals():
@@ -192,3 +211,5 @@ for q in queries:
                 lat, lon = coords[idx]
                 export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
             st.download_button("Download GPX mit Intake-Punkten", export.to_xml(), file_name="route_intake.gpx", mime="application/gpx+xml")
+
+st.info("Dark/futuristisches Design aktiviert. Viel Erfolg bei deinem Workout!")
