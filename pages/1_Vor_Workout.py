@@ -103,17 +103,27 @@ st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
 # --- Build time series with intake values ---
-mins = list(range(0, int(dauer)+1))
-cal_cons = [cal_hr/60*m for m in mins]
-flu_cons = [0.7/60*m for m in mins]
-cal_int = [next((int(recommend_snack(cal_tot/(dauer/eat_i))['calories']) if (t % eat_i == 0 and t==m) else 0), 0) for m,t in enumerate(mins)]
-flu_int = [1 if (m % drink_i == 0 and m>0) else 0 for m in mins]  # water intake marker liters unitless
-
-df_time = pd.DataFrame({'Minute':mins,
-                        'Calorie consumption':cal_cons,
-                        'Calorie intake':cal_int,
-                        'Fluid consumption':flu_cons,
-                        'Fluid intake':flu_int}).set_index('Minute')
+mins = list(range(0, int(dauer) + 1))
+# Consumption curves
+cal_cons = [cal_hr / 60 * m for m in mins]
+flu_cons = [0.7 / 60 * m for m in mins]
+# Determine intake events and amounts
+eat_events = set(range(eat_i, int(dauer) + 1, eat_i))
+drink_events = set(range(drink_i, int(dauer) + 1, drink_i))
+# Amount per intake
+cal_per_intake = cal_tot / len(eat_events) if eat_events else 0
+fluid_per_intake = flu_tot / len(drink_events) if drink_events else 0
+# Intake series
+cal_int = [cal_per_intake if m in eat_events else 0 for m in mins]
+flu_int = [fluid_per_intake if m in drink_events else 0 for m in mins]
+# Assemble DataFrame
+df_time = pd.DataFrame({
+    'Minute': mins,
+    'Calorie consumption': cal_cons,
+    'Calorie intake': cal_int,
+    'Fluid consumption': flu_cons,
+    'Fluid intake': flu_int
+}).set_index('Minute')
 
 # --- Calorie chart with intake ---
 st.markdown("---")
