@@ -10,9 +10,6 @@ import gpxpy.gpx as gpx_module
 import altair as alt
 import urllib.parse
 
-# --- Candidate Snacks ---
-CANDIDATE_SNACKS = ['Clif Bar', 'Honey Stinger Gel', 'Gatorade']
-
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
 APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
@@ -26,10 +23,9 @@ def fetch_nutrition(product_name):
     return resp.json().get('foods', [])[0]
 
 @st.cache_data
-def fetch_snack_options():
-    # Suche nach Sports Nutrition Produkten
+def fetch_snack_options(limit=20):
     headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY, 'Content-Type': 'application/json'}
-    data = {'query': 'sports nutrition', 'limit': 10}
+    data = {'query': 'sports nutrition', 'limit': limit}
     resp = requests.post(API_URL, headers=headers, json=data)
     resp.raise_for_status()
     return resp.json().get('foods', [])
@@ -90,8 +86,7 @@ sched = []
 for t in events:
     row = {'Minute': t}
     if t % eat_i == 0:
-        amt = cal_tot/(dauer/eat_i)
-        row['Essen (kcal)'] = int(amt)
+        row['Essen (kcal)'] = int(cal_tot/(dauer/eat_i))
     if t % drink_i == 0:
         row['Trinken (L)'] = round(flu_tot/(dauer/drink_i), 2)
     sched.append(row)
@@ -102,26 +97,23 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack-Empfehlungen pro Intake ---
+# --- Snack options from API ---
 st.markdown("---")
-st.subheader("🍪 Snack-Empfehlungen pro Intake")
-# Essens-Einheiten aus Intake-Plan
-eat_events = [int(idx) for idx in df_sched.index if 'Essen' in df_sched.columns or 'Essen (kcal)' in df_sched.columns]
-if not eat_events:
-    st.write("Keine Essens-Einheit vorhanden.")
-else:
-    required = cal_tot/(dauer/eat_i)
-    options = [fetch_nutrition(sn) for sn in CANDIDATE_SNACKS]
-    options = sorted(options, key=lambda x: abs(x['nf_calories'] - required))
-    for t in eat_events:
-        st.write(f"**Minute {t}: benötigte Energie** ~{int(required)} kcal")
-        for opt in options:
-            name = opt['food_name']
-            cal = opt['nf_calories']
-            qty = opt['serving_qty']
-            unit = opt['serving_unit']
+st.subheader("🍪 Snack-Optionen & Kauf-Links")
+try:
+    snacks = fetch_snack_options(limit=30)
+    if not snacks:
+        st.write("Keine Snack-Optionen gefunden.")
+    else:
+        # Zeige alle Snacks mit Kalorien und Link
+        for item in snacks:
+            name = item['food_name']
+            cal = item['nf_calories']
+            serving = f"{item['serving_qty']} {item['serving_unit']}"
             link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-            st.write(f"- [{name}]({link}): {cal} kcal · {qty} {unit}")
+            st.write(f"- [{name}]({link}): {cal} kcal · {serving}")
+except requests.HTTPError:
+    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
 # --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
@@ -173,8 +165,10 @@ if coords:
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
         lat, lon = coords[idx]
-        if t in eat_events: color='orange'
-        elif t in drink_events: color='cyan'
+        if t in eat_events:
+            color = 'orange'
+        elif t in drink_events:
+            color = 'cyan'
         folium.CircleMarker(location=(lat, lon), radius=6,
                             popup=f"{t} Min", color=color, fill=True).add_to(m)
 st_folium(m, width=700, height=500)
@@ -192,4 +186,4 @@ if 'gpx_obj' in locals():
     st.download_button("Download GPX mit Intake-Punkten", export.to_xml(),
                        file_name="route_intake.gpx", mime="application/gpx+xml")
 
-st.info("Kumulative Charts und Snack-Optionen mit Kauflinks.")
+st.info("Kumulierte Charts und Snack-Optionen mit Kauflinks.")
