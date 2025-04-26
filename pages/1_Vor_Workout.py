@@ -8,7 +8,6 @@ import re
 from streamlit_folium import st_folium
 import gpxpy.gpx as gpx_module
 import altair as alt
-from datetime import timedelta
 
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
@@ -48,27 +47,30 @@ def parse_gpx(text):
     dist = (g.length_3d() or 0) / 1000
     pts = [(pt.latitude, pt.longitude)
            for tr in g.tracks for seg in tr.segments for pt in seg.points]
-    return secs / 60, dist, pts, g
+    return secs/60, dist, pts, g
 
-# --- GPX File Upload ---
-st.markdown("### GPX-Datei hochladen")
-up = st.file_uploader("GPX-Datei", type='gpx')
-if not up:
-    st.error("Bitte lade eine GPX-Datei hoch, um die Route zu analysieren.")
-    st.stop()
-txt = up.read().decode()
-dauer, distanz, coords, gpx_obj = parse_gpx(txt)
-st.success(f"GPX-Datei geladen: {dauer:.0f} Min, {distanz:.2f} km")
+# --- Input Mode: File or Manual ---
+mode = st.radio("Datenquelle", ["GPX-Datei", "Manuelle Eingabe"])
+if mode == "GPX-Datei":
+    up = st.file_uploader("GPX-Datei hochladen", type='gpx')
+    if not up:
+        st.error("Bitte lade eine GPX-Datei hoch.")
+        st.stop()
+    txt = up.read().decode()
+    dauer, distanz, coords, gpx_obj = parse_gpx(txt)
+else:
+    dauer = st.slider("Dauer (Min)", 15, 300, 60)
+    distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
+    coords = []
+st.write(f"Dauer: {dauer} Min, Distanz: {distanz} km")
 
 # --- Compute metrics ---
 intensity = st.select_slider("Intensität", ["Leicht","Mittel","Hart"])
-facts = {"Laufen": {"Leicht":7,"Mittel":9,"Hart":12},
-         "Radfahren": {"Leicht":5,"Mittel":7,"Hart":10},
-         "Schwimmen": {"Leicht":6,"Mittel":8,"Hart":11},
-         "Triathlon": {"Leicht":6,"Mittel":9,"Hart":13}}
+facts = {"Laufen":{"Leicht":7,"Mittel":9,"Hart":12},"Radfahren":{"Leicht":5,"Mittel":7,"Hart":10},
+         "Schwimmen":{"Leicht":6,"Mittel":8,"Hart":11},"Triathlon":{"Leicht":6,"Mittel":9,"Hart":13}}
 cal_hr = facts[sportart][intensity] * gewicht
-cal_tot = cal_hr * (dauer / 60)
-flu_tot = 0.7 * (dauer / 60)
+cal_tot = cal_hr * (dauer/60)
+flu_tot = 0.7 * (dauer/60)
 
 # --- Schedule intake ---
 if dauer <= 60:
@@ -81,71 +83,80 @@ else:
     eat_i = 60
 drink_i = 15
 
-events = sorted(set(list(range(eat_i, int(dauer)+1, eat_i)) + list(range(drink_i, int(dauer)+1, drink_i))))
-sched = []
+events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
+sched=[]
 for t in events:
-    row = {'Minute': t}
-    if t % eat_i == 0:
-        sn = recommend_snack(cal_tot / (dauer / eat_i))
-        row['Essen'] = f"{sn['name']} ({int(sn['calories'])} kcal)"
-    if t % drink_i == 0:
+    row={'Minute':t}
+    eat = (t % eat_i == 0)
+    drink = (t % drink_i == 0)
+    if eat:
+        sn = recommend_snack(cal_tot/(dauer/eat_i))
+        row['Essen'] = f"{sn['name']} ({int(sn['calories'])} kcal)"
+    if drink:
         row['Trinken'] = 'Wasser'
     sched.append(row)
 df_sched = pd.DataFrame(sched).set_index('Minute')
 
-# Intake table
+# --- Intake Table ---
 st.markdown("---")
-st.subheader("⏰ Intake-Plan")
+st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Consumption + Intake Charts ---
+# --- Build time series with intake values ---
 mins = list(range(0, int(dauer)+1))
-cal_curve = [cal_hr/60 * m for m in mins]
-flu_curve = [0.7/60 * m for m in mins]
-plot_cal = pd.DataFrame({'Minute': mins, 'Kalorien (kcal)': cal_curve}).set_index('Minute')
-plot_flu = pd.DataFrame({'Minute': mins, 'Flüssigkeit (L)': flu_curve}).set_index('Minute')
+cal_cons = [cal_hr/60*m for m in mins]
+flu_cons = [0.7/60*m for m in mins]
+cal_int = [next((int(recommend_snack(cal_tot/(dauer/eat_i))['calories']) if (t % eat_i == 0 and t==m) else 0), 0) for m,t in enumerate(mins)]
+flu_int = [1 if (m % drink_i == 0 and m>0) else 0 for m in mins]  # water intake marker liters unitless
 
-# Calorie chart
-st.markdown("---")
-st.subheader("📊 Kalorienverbrauch & Intake")
-cal_line = alt.Chart(plot_cal.reset_index()).mark_line().encode(x='Minute:Q', y='Kalorien (kcal):Q')
-cal_pts = alt.Chart(df_sched.reset_index()).mark_point(color='red').encode(x='Minute:Q', y=alt.value(0), tooltip='Essen:N')
-st.altair_chart(cal_line + cal_pts, use_container_width=True)
+df_time = pd.DataFrame({'Minute':mins,
+                        'Calorie consumption':cal_cons,
+                        'Calorie intake':cal_int,
+                        'Fluid consumption':flu_cons,
+                        'Fluid intake':flu_int}).set_index('Minute')
 
-# Fluid chart
+# --- Calorie chart with intake ---
 st.markdown("---")
-st.subheader("📊 Flüssigkeitsverlust & Intake")
-flu_line = alt.Chart(plot_flu.reset_index()).mark_line(color='green').encode(x='Minute:Q', y='Flüssigkeit (L):Q')
-flu_pts = alt.Chart(df_sched.reset_index()).mark_point(color='blue').encode(x='Minute:Q', y=alt.value(0), tooltip='Trinken:N')
-st.altair_chart(flu_line + flu_pts, use_container_width=True)
+st.subheader("📊 Kalorien: Verbrauch & Aufnahme")
+base = alt.Chart(df_time.reset_index()).encode(x='Minute:Q')
+line1 = base.mark_line().encode(y='Calorie consumption:Q')
+bar1 = base.mark_bar(opacity=0.5, color='orange').encode(y='Calorie intake:Q')
+st.altair_chart(line1 + bar1, use_container_width=True)
+
+# --- Fluid chart with intake ---
+st.markdown("---")
+st.subheader("📊 Flüssigkeit: Verlust & Aufnahme")
+base2 = alt.Chart(df_time.reset_index()).encode(x='Minute:Q')
+line2 = base2.mark_line(color='green').encode(y='Fluid consumption:Q')
+bar2 = base2.mark_bar(opacity=0.5, color='blue').encode(y='Fluid intake:Q')
+st.altair_chart(line2 + bar2, use_container_width=True)
 
 # --- Interactive Map & GPX Export ---
+st.markdown("---")
+st.subheader("🗺️ Route & Intake-Punkte")
+m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
 if coords:
-    st.markdown("---")
-    st.subheader("🗺️ Route & Intake-Punkte")
-    m = folium.Map(location=coords[0], zoom_start=13)
     folium.PolyLine(coords, color='blue', weight=3).add_to(m)
     for t in events:
-        idx = min(int(t / dauer * len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        folium.CircleMarker(location=(lat, lon), radius=6,
-                            popup=f"{t} Min", color='red', fill=True).add_to(m)
-    st_folium(m, width=700, height=500)
+        if coords:
+            idx = min(int(t/dauer*len(coords)), len(coords)-1)
+            lat,lon = coords[idx]
+            color = 'orange' if (t % eat_i == 0) else 'blue'
+            folium.CircleMarker(location=(lat,lon), radius=6,
+                                popup=f"{t} Min", color=color, fill=True).add_to(m)
+st_folium(m, width=700, height=500)
 
-    # Export GPX with waypoints
+# GPX export with waypoints
+if 'gpx_obj' in locals():
     export = gpx_module.GPX()
-    track = gpx_module.GPXTrack()
-    export.tracks.append(track)
-    segment = gpx_module.GPXTrackSegment()
-    track.segments.append(segment)
-    for lat, lon in coords:
-        segment.points.append(gpx_module.GPXTrackPoint(lat, lon))
+    trk = gpx_module.GPXTrack(); export.tracks.append(trk)
+    seg = gpx_module.GPXTrackSegment(); trk.segments.append(seg)
+    for lat,lon in coords: seg.points.append(gpx_module.GPXTrackPoint(lat,lon))
     for t in events:
-        idx = min(int(t / dauer * len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
-    gpx_data = export.to_xml()
-    st.download_button("Download GPX mit Intake-Punkten", gpx_data,
+        idx = min(int(t/dauer*len(coords)), len(coords)-1)
+        lat,lon=coords[idx]
+        export.waypoints.append(gpx_module.GPXWaypoint(lat,lon,name=f"{t} Min"))
+    st.download_button("Download GPX mit Intake-Punkten", export.to_xml(),
                        file_name="route_intake.gpx", mime="application/gpx+xml")
 
-st.info("Separate Charts und exportierbare GPX-Datei mit Intake-Punkten.")
+st.info("Getrennte Charts mit Verbrauch & Aufnahme und differenzierte Map-Marker.")
