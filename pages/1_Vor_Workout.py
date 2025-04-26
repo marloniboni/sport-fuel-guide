@@ -2,15 +2,9 @@ import streamlit as st
 import pandas as pd
 import requests
 import os
+import gpxpy
+import re
 from datetime import timedelta
-
-# Wenn gpxpy nicht installiert ist, automatisch installieren
-try:
-    import gpxpy
-except ModuleNotFoundError:
-    import subprocess, sys
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "gpxpy"])
-    import gpxpy
 
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
@@ -56,11 +50,7 @@ fluessigkeit_tag = st.session_state.fluessigkeit
 
 sportart = st.selectbox("Sportart", ["Laufen", "Radfahren", "Schwimmen", "Triathlon"])
 
-# --- GPX-Link or file upload ---
-st.markdown("### GPX-Link oder Datei")
-route_url = st.text_input("GPX-Link zur Aktivität (z.B. Komoot/Strava)")
-uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
-
+# --- Parse GPX text into duration & distance ---
 def parse_gpx(gpx_text):
     gpx = gpxpy.parse(gpx_text)
     total_seconds = gpx.get_duration() or 0
@@ -68,22 +58,39 @@ def parse_gpx(gpx_text):
     distanz = (gpx.length_3d() or 0) / 1000
     return dauer, distanz
 
+# --- GPX-Link or file upload ---
+st.markdown("### GPX-Link oder Datei")
+route_url = st.text_input("GPX-Link zur Aktivität (Komoot Embed oder direkter GPX)")
+uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
+
 if route_url:
     try:
-        resp = requests.get(route_url)
+        # Handle Komoot embed links
+        if "komoot.com" in route_url and "/embed" in route_url:
+            id_match = re.search(r"/tour/(\d+)", route_url)
+            token_match = re.search(r"share_token=([^&]+)", route_url)
+            if id_match and token_match:
+                tour_id = id_match.group(1)
+                token = token_match.group(1)
+                download_url = f"https://www.komoot.com/tour/{tour_id}/download.gpx?share_token={token}"
+                resp = requests.get(download_url)
+            else:
+                resp = requests.get(route_url)
+        else:
+            resp = requests.get(route_url)
         resp.raise_for_status()
         dauer, distanz = parse_gpx(resp.text)
         st.success(f"Route geladen: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
-    except Exception:
-        st.error("Fehler beim Laden oder Parsen der GPX-URL.")
+    except Exception as e:
+        st.error(f"Fehler beim Laden/Parsieren der GPX-URL: {e}")
         st.stop()
 elif uploaded_file:
     try:
         text = uploaded_file.read().decode("utf-8")
         dauer, distanz = parse_gpx(text)
         st.success(f"GPX-Datei erkannt: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
-    except Exception:
-        st.error("Fehler beim Parsen der hochgeladenen GPX-Datei.")
+    except Exception as e:
+        st.error(f"Fehler beim Parsen der hochgeladenen GPX-Datei: {e}")
         st.stop()
 else:
     st.markdown("### 🏋️ Was hast du geplant?")
