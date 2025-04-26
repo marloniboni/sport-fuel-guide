@@ -43,7 +43,7 @@ def fetch_image(query: str):
         return items[0].get('photo', {}).get('thumb')
     return None
 
-# --- App Title & Data Check ---
+# --- App Title & User Data Check ---
 st.title("⚡ Vor-Workout Planung")
 if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
@@ -51,13 +51,12 @@ if 'gewicht' not in st.session_state:
 gewicht = st.session_state.gewicht
 sportart = st.selectbox("Sportart", ["Laufen","Radfahren","Schwimmen","Triathlon"])
 
-# --- GPX Parsing ---
+# --- GPX Parsing Helper ---
 def parse_gpx(text: str):
     g = gpxpy.parse(text)
     secs = g.get_duration() or 0
     dist = (g.length_3d() or 0)/1000
-    coords = [(pt.latitude, pt.longitude)
-              for tr in g.tracks for seg in tr.segments for pt in seg.points]
+    coords = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
     return secs/60, dist, coords, g
 
 mode = st.radio("Datenquelle", ["GPX-Datei","Manuelle Eingabe"])
@@ -127,97 +126,33 @@ for q in queries:
                 val=n.get('value')
             if key: nutrients[key]=val or 0
         cal100=nutrients.get('Energy') or nutrients.get('Calories') or 0
-        fat100=nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
-        prot100=nutrients.get('Protein') or 0
-        carb100=nutrients.get('Carbohydrate, by difference') or nutrients.get('Carbs') or 0
         grams=required_cal*100/cal100 if cal100 else 0
-        fat= fat100*grams/100
-        prot= prot100*grams/100
-        carb= carb100*grams/100
-        col1,col2=st.columns([2,1])
-        if img_url:
-            col1.image(img_url,width=80)
-        col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
-                                # Prepare data including sugar, fiber, saturated/unsaturated fat, protein
-        sat_fat100 = nutrients.get('Fatty acids, total saturated') or 0
-        mono_fat100 = nutrients.get('Fatty acids, total monounsaturated') or 0
-        poly_fat100 = nutrients.get('Fatty acids, total polyunsaturated') or 0
-        fiber100 = nutrients.get('Fiber, total dietary') or nutrients.get('Dietary fiber') or 0
-        sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
-        prot100 = nutrients.get('Protein') or 0
-        # Debug: output raw nutrient values and cal100
-        col2.write("Nutrienten-Rohdaten:")
-        col2.write(nutrients)
-        col2.write(f"cal100: {cal100}, grams: {grams:.2f}")
-        # scale per needed grams
-        sat_fat = sat_fat100 * grams/100
-        mono_fat = mono_fat100 * grams/100
-        poly_fat = poly_fat100 * grams/100
-        fiber = fiber100 * grams/100
-        sugar = sugar100 * grams/100
-        prot = prot100 * grams/100
-        # DataFrames for two spiders
-        df_macro = pd.DataFrame({
-            'Makronährstoff': ['gesättigte Fette','einfach ungesättigte Fette','mehrfach ungesättigte Fette','Ballaststoffe','Zucker','Protein'],
-            'Gramm': [sat_fat, mono_fat, poly_fat, fiber, sugar, prot]
-        })
-        # only show macronutrient spider without fats breakdown and vitamins/minerals
+        prot100=nutrients.get('Protein') or 0
+        prot=prot100*grams/100
+        fiber100=nutrients.get('Fiber, total dietary') or nutrients.get('Dietary fiber') or 0
+        fiber=fiber100*grams/100
+        sugar100=nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
+        sugar=sugar100*grams/100
         df_macro = pd.DataFrame({
             'Makronährstoff': ['Ballaststoffe','Zucker','Protein'],
             'Gramm': [fiber, sugar, prot]
         })
-        area1 = alt.Chart(df_macro).mark_area(interpolate='linear', opacity=0.3).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=df_macro['Makronährstoff'].tolist()),
-            radius=alt.Radius('Gramm:Q'),
+        col1, col2 = st.columns([2,1])
+        if img_url: col1.image(img_url, width=80)
+        col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
+        dfm = df_macro.copy()
+        dfm['Gramm'] = dfm['Gramm'].astype(float)
+        col2.write(dfm)
+        area1 = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.3).encode(
+            theta=alt.Theta('Makronährstoff:N', sort=dfm['Makronährstoff'].tolist()),
+            radius=alt.Radius('Gramm:Q', scale=alt.Scale(zero=True)),
             color=alt.Color('Makronährstoff:N', legend=None)
         )
-        line1 = alt.Chart(df_macro).mark_line(point=True).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=df_macro['Makronährstoff'].tolist()),
-            radius=alt.Radius('Gramm:Q'),
+        line1 = alt.Chart(dfm).mark_line(point=True).encode(
+            theta=alt.Theta('Makronährstoff:N', sort=dfm['Makronährstoff'].tolist()),
+            radius=alt.Radius('Gramm:Q', scale=alt.Scale(zero=True)),
             color=alt.Color('Makronährstoff:N', legend=None),
             tooltip=['Makronährstoff','Gramm']
         ).interactive()
         spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
-        col2.altair_chart(spider1, use_container_width=False), use_container_width=False)
-
-# --- Kumulative Charts ---
-mins=list(range(int(dauer)+1))
-cal_cons=[cal_hr/60*m for m in mins]
-flu_cons=[0.7/60*m for m in mins]
-cal_int=[sum(df_sched.loc[:m,['Essen (kcal)']].fillna(0).values.flatten()) for m in mins]
-flu_int=[sum(df_sched.loc[:m,['Trinken (L)']].fillna(0).values.flatten()) for m in mins]
-chart_df=pd.DataFrame({'Minute':mins,'Cal consumption':cal_cons,'Cal intake':cal_int,'Flu consumption':flu_cons,'Flu intake':flu_int})
-st.markdown("---")
-st.subheader("📊 Verbrauch vs. Zufuhr")
-cal_base=alt.Chart(chart_df).encode(x='Minute:Q')
-cal_line=cal_base.mark_line(color='orange').encode(y='Cal consumption:Q')
-cal_int_line=cal_base.mark_line(color='red',strokeDash=[4,2]).encode(y='Cal intake:Q')
-flu_base=alt.Chart(chart_df).encode(x='Minute:Q')
-flu_line=flu_base.mark_line(color='blue').encode(y='Flu consumption:Q')
-flu_int_line=flu_base.mark_line(color='cyan',strokeDash=[4,2]).encode(y='Flu intake:Q')
-st.altair_chart(alt.hconcat(cal_line+cal_int_line,flu_line+flu_int_line),use_container_width=True)
-
-# --- Map & GPX Export ---
-st.markdown("---")
-st.subheader("🗺️ Route & Intake-Punkte")
-m=folium.Map(location=coords[0] if coords else [0,0],zoom_start=13)
-if coords:
-    folium.PolyLine(coords,color='blue',weight=3).add_to(m)
-    for t in events:
-        idx=min(int(t/dauer*len(coords)),len(coords)-1)
-        lat,lon=coords[idx]
-        c='orange' if t%eat_i==0 else 'cyan'
-        folium.CircleMarker((lat,lon),radius=6,popup=f"{t} Min",color=c,fill=True).add_to(m)
-st_folium(m,width=700,height=500)
-
-if 'gpx_obj' in locals():
-    export=gpx_module.GPX();trk=gpx_module.GPXTrack();export.tracks.append(trk)
-    seg=gpx_module.GPXTrackSegment();trk.segments.append(seg)
-    for lat,lon in coords: seg.points.append(gpx_module.GPXTrackPoint(lat,lon))
-    for t in events:
-        idx=min(int(t/dauer*len(coords)),len(coords)-1)
-        lat,lon=coords[idx]
-        export.waypoints.append(gpx_module.GPXWaypoint(lat,lon,name=f"{t} Min"))
-    st.download_button("Download GPX mit Intake-Punkten",export.to_xml(),file_name="route_intake.gpx",mime="application/gpx+xml")
-
-st.info("USDA-FDC basierte Snack-Suche mit Bild & interaktiver Smart-Spider.")
+        col2.altair_chart(spider1, use_container_width=False)
