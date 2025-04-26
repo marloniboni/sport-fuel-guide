@@ -53,41 +53,33 @@ def parse_gpx(gpx_text):
     dist = (gpx.length_3d() or 0) / 1000
     return duration / 60, dist
 
-# --- Input: GPX link or file ---
-st.markdown("### GPX-Link, HTML-Snippet oder Datei eingeben")
-route_input = st.text_area("Füge hier Komoot/Strava-Link, iframe oder Anchor-Tag ein:")
-uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
+# --- Input: GPX link, HTML or file ---
+st.markdown("### GPX-Link/HTML-Snippet oder Datei eingeben")
+route_input = st.text_area("GPX-Link, iframe oder Anchor-Tag:")
+uploaded_file = st.file_uploader("Oder GPX-Datei hochladen", type="gpx")
 
 duration, distanz = None, None
 if route_input:
-    # Try extract URL from HTML snippet
     href = None
     if '<' in route_input and '>' in route_input:
-        # first look for src in iframe
         m = re.search(r'src=["\']([^"\']+)["\']', route_input)
-        if m:
-            href = m.group(1)
+        if m: href = m.group(1)
         else:
-            # fallback to href
             m = re.search(r'href=["\']([^"\']+)["\']', route_input)
-            if m:
-                href = m.group(1)
+            if m: href = m.group(1)
     url = href or route_input.strip()
     try:
-        # Direct GPX URL or webpage URL
         resp = requests.get(url)
         resp.raise_for_status()
-        # If URL points to a page, try detect Komoot tour id
+        # handle Komoot tour pages
         if 'komoot.com' in url and not url.endswith('.gpx'):
-            id_match = re.search(r"/tour/(\d+)", url)
-            token_match = re.search(r"share_token=([^&]+)", url)
-            if id_match:
-                tour_id = id_match.group(1)
-                token = token_match.group(1) if token_match else None
-                # Komoot API endpoint
-                api_url = f"https://www.komoot.com/api/v007/tours/{tour_id}.gpx"
-                if token:
-                    api_url += f"?share_token={token}"
+            idm = re.search(r"/tour/(\d+)", url)
+            tokm = re.search(r"share_token=([^&]+)", url)
+            if idm:
+                tour_id = idm.group(1)
+                token = tokm.group(1) if tokm else None
+                api_url = f"https://www.komoot.com/tour/{tour_id}.gpx"
+                if token: api_url += f"?share_token={token}"
                 resp = requests.get(api_url)
                 resp.raise_for_status()
         duration, distanz = parse_gpx(resp.text)
@@ -111,24 +103,51 @@ else:
     duration = st.slider("Dauer (Min)", 15, 300, 60)
     distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
 
-# synchronize variable
 dauer = duration
 
 # --- Select intensity ---
 intensity = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
 
 # --- Compute metrics ---
-factors = {
-    "Laufen": {"Leicht": 7, "Mittel": 9, "Hart": 12},
-    "Radfahren": {"Leicht": 5, "Mittel": 7, "Hart": 10},
-    "Schwimmen": {"Leicht": 6, "Mittel": 8, "Hart": 11},
-    "Triathlon": {"Leicht": 6, "Mittel": 9, "Hart": 13},
-}
+factors = {"Laufen": {"Leicht":7,"Mittel":9,"Hart":12},"Radfahren": {"Leicht":5,"Mittel":7,"Hart":10},"Schwimmen": {"Leicht":6,"Mittel":8,"Hart":11},"Triathlon": {"Leicht":6,"Mittel":9,"Hart":13}}
 cal_per_hr = factors[sportart][intensity] * gewicht
-cal_burn = cal_per_hr * (dauer / 60)
-fluid_loss = 0.7 * (dauer / 60)
+cal_burn = cal_per_hr * (dauer/60)
+fluid_loss = 0.7 * (dauer/60)
 
-# --- Display metrics ---
+total_cal = grundumsatz + cal_burn
+total_fluid = fluessigkeit_tag + fluid_loss
+
+# --- Automatischer Intake-Plan während der Aktivität ---
+st.markdown("---")
+st.subheader("⏰ Automatischer Intake-Plan")
+# Bestimme geeignetes Intervall je nach Dauer
+if dauer <= 60:
+    interval = 20
+elif dauer <= 120:
+    interval = 30
+elif dauer <= 180:
+    interval = 45
+else:
+    interval = 60
+st.write(f"Empfohlenes Intake-Intervall: {interval} Minuten")
+# Anzahl der Intake-Ereignisse
+num_intakes = max(int(dauer // interval), 1)
+cal_per_intake = cal_burn / num_intakes
+fluid_per_intake = fluid_loss / num_intakes
+schedule = []
+for i in range(1, num_intakes + 1):
+    time_min = round(i * interval)
+    snack = recommend_snack(cal_per_intake)
+    schedule.append({
+        'Minute': time_min,
+        'Kcal': f"{int(cal_per_intake)} kcal",
+        'Flüssigkeit': f"{fluid_per_intake:.2f} L",
+        'Snacks': snack['name']
+    })
+intake_df = pd.DataFrame(schedule).set_index('Minute')
+st.table(intake_df)
+
+# --- Display calculations ---
 st.markdown("---")
 st.subheader("📈 Deine Berechnungen")
 st.write(f"Trainingskalorien: {int(cal_burn)} kcal")
@@ -144,14 +163,10 @@ st.write(f"{sn['name']}: {sn['serving_qty']} {sn['serving_unit']} (~{int(sn['cal
 # --- Chart ---
 st.markdown("---")
 st.subheader("📊 Verlauf während Training")
-mins = list(range(0, int(dauer) + 1))
-cal_min = cal_per_hr / 60
-fluid_min = 0.7 / 60
-df = pd.DataFrame({
-    'Minute': mins,
-    'Kalorien': [cal_min * m for m in mins],
-    'Flüssigkeit': [fluid_min * m for m in mins]
-}).set_index('Minute')
-st.line_chart(df)
+mins = list(range(0, int(dauer)+1))
+cal_min = cal_per_hr/60
+fluid_min = 0.7/60
+cf_df = pd.DataFrame({'Minute': mins, 'Kalorien': [cal_min*m for m in mins], 'Flüssigkeit': [fluid_min*m for m in mins]}).set_index('Minute')
+st.line_chart(cf_df)
 
 st.info("Kalorien- und Flüssigkeitsverlauf")
