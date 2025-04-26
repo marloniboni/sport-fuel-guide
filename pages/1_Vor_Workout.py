@@ -83,6 +83,40 @@ else:
 drink_i = 15
 events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
 
+# --- FastSecret API Setup for Macro Breakdown ---
+FAST_ID = os.getenv("FASTSECRET_CLIENT_ID")
+FAST_SECRET = os.getenv("FASTSECRET_CLIENT_SECRET")
+@st.cache_data
+def fetch_fastsecret_token():
+    # Obtain OAuth token
+    token_resp = requests.post(
+        "https://api.fastsecret.com/oauth/token", 
+        data={'grant_type':'client_credentials'},
+        auth=(FAST_ID, FAST_SECRET)
+    )
+    token_resp.raise_for_status()
+    return token_resp.json().get('access_token')
+
+@st.cache_data
+def fetch_food_macros(product_name):
+    token = fetch_fastsecret_token()
+    hdr = {'Authorization': f"Bearer {token}", 'Content-Type':'application/json'}
+    resp = requests.get(
+        f"https://api.fastsecret.com/v1/foods/search?query={urllib.parse.quote(product_name)}", 
+        headers=hdr
+    )
+    resp.raise_for_status()
+    items = resp.json().get('foods', [])
+    if not items:
+        return {}
+    # Take first match, get detailed info
+    food_id = items[0]['id']
+    detail = requests.get(f"https://api.fastsecret.com/v1/foods/{food_id}", headers=hdr)
+    detail.raise_for_status()
+    data = detail.json()
+    # Return macros
+    return { 'fat': data['fat_g'], 'protein': data['protein_g'], 'carbs': data['carbohydrates_g'] }
+
 # --- Intake Plan Table ---
 sched = []
 for t in events:
@@ -97,23 +131,28 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack Options from API (no external links) ---
+# --- Snack-Optionen passend zu Intake-Kalorien ---
 st.markdown("---")
-st.subheader("🍪 Snack-Optionen")
+st.subheader("🍪 Snacks mit exakter Kalorienzahl für jede Intake-Einheit")
+# benötigte Kalorien pro Intake-Ereignis
+required_cal = int(cal_tot/(dauer/eat_i))
+st.write(f"Benötigte Kalorien pro Snack: **{required_cal} kcal**")
+# Suche nach passenden Snacks
 query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
 limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
 try:
     snacks = search_snacks(query=query, limit=limit)
-    if not snacks:
-        st.write(f"Keine Snacks gefunden für '{query}'.")
+    matches = []
+    for item in snacks:
+        nut = fetch_nutrition(item['food_name'])
+        if nut and int(nut['nf_calories']) == required_cal:
+            matches.append((item['food_name'], item.get('brand_name',''), nut))
+    if not matches:
+        st.write("Keine Snacks gefunden, die genau diesen Kalorienwert haben.")
     else:
-        for item in snacks:
-            name = item['food_name']
-            brand = item.get('brand_name', 'Unbekannt')
-            nut = fetch_nutrition(name)
-            cal = nut['nf_calories'] if nut else 'n/a'
-            serving = f"{nut['serving_qty']} {nut['serving_unit']}" if nut else ''
-            st.write(f"- {name} ({brand}): {cal} kcal · {serving}")
+        for name, brand, nut in matches:
+            serving = f"{nut['serving_qty']} {nut['serving_unit']}"
+            st.write(f"- **{name}** ({brand}): {required_cal} kcal · {serving}")
 except requests.HTTPError:
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
