@@ -121,34 +121,29 @@ for q in queries:
         name = food.get('description')
         details = get_food_details(fdc_id)
         # Extract nutrients robustly for FDC v1 and v2
-nutrients = {}
-for n in details.get('foodNutrients', []):
-    # FDC v1 structure: 'nutrient' dict nested
-    if 'nutrient' in n and isinstance(n['nutrient'], dict):
-        key = n['nutrient'].get('name') or n['nutrient'].get('nutrientName')
-        val = n.get('amount') or n.get('value')
-    else:
-        # FDC legacy structure
-        key = n.get('nutrientName')
-        val = n.get('value')
-    if key:
-        nutrients[key] = val or 0
-# Common nutrient keys may vary: try multiple variants
-cal100 = nutrients.get('Energy') or nutrients.get('energy') or nutrients.get('Calories') or 0
-fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
-prot100 = nutrients.get('Protein') or nutrients.get('protein') or 0
-carb100 = nutrients.get('Carbohydrate, by difference') or nutrients.get('Carbohydrates') or nutrients.get('Carbs') or 0
-        fat100 = nutrients.get('Total lipid (fat)', 0)
-        prot100 = nutrients.get('Protein', 0)
-        carb100 = nutrients.get('Carbohydrate, by difference', 0)
+        nutrients = {}
+        for n in details.get('foodNutrients', []):
+            # FDC v1 structure: 'nutrient' dict nested
+            if 'nutrient' in n and isinstance(n['nutrient'], dict):
+                key = n['nutrient'].get('name') or n['nutrient'].get('nutrientName')
+                val = n.get('amount') or n.get('value')
+            else:
+                # FDC legacy structure
+                key = n.get('nutrientName')
+                val = n.get('value')
+            if key:
+                nutrients[key] = val or 0
+        # Common nutrient keys may vary: try multiple variants
+        cal100 = nutrients.get('Energy') or nutrients.get('energy') or nutrients.get('Calories') or 0
+        fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
+        prot100 = nutrients.get('Protein') or nutrients.get('protein') or 0
+        carb100 = nutrients.get('Carbohydrate, by difference') or nutrients.get('Carbohydrates') or nutrients.get('Carbs') or 0
         grams = required_cal * 100 / cal100 if cal100 else 0
-        fat = fat100 * grams/100
-        prot = prot100 * grams/100
-        carb = carb100 * grams/100
+        fat = fat100 * grams / 100
+        prot = prot100 * grams / 100
+        carb = carb100 * grams / 100
         col1, col2 = st.columns([2,1])
-        col1.markdown(
-            f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**"
-        )
+        col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
         dfm = pd.DataFrame({
             'Makronährstoff': ['Fett','Protein','Kohlenhydrate'],
             'Gramm': [fat, prot, carb]
