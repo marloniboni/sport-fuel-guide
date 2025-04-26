@@ -63,10 +63,12 @@ if route_input:
     href = None
     if '<' in route_input and '>' in route_input:
         m = re.search(r'src=["\']([^"\']+)["\']', route_input)
-        if m: href = m.group(1)
+        if m:
+            href = m.group(1)
         else:
             m = re.search(r'href=["\']([^"\']+)["\']', route_input)
-            if m: href = m.group(1)
+            if m:
+                href = m.group(1)
     url = href or route_input.strip()
     try:
         resp = requests.get(url)
@@ -79,7 +81,8 @@ if route_input:
                 tour_id = idm.group(1)
                 token = tokm.group(1) if tokm else None
                 api_url = f"https://www.komoot.com/tour/{tour_id}.gpx"
-                if token: api_url += f"?share_token={token}"
+                if token:
+                    api_url += f"?share_token={token}"
                 resp = requests.get(api_url)
                 resp.raise_for_status()
         duration, distanz = parse_gpx(resp.text)
@@ -111,8 +114,8 @@ intensity = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
 # --- Compute metrics ---
 factors = {"Laufen": {"Leicht":7,"Mittel":9,"Hart":12},"Radfahren": {"Leicht":5,"Mittel":7,"Hart":10},"Schwimmen": {"Leicht":6,"Mittel":8,"Hart":11},"Triathlon": {"Leicht":6,"Mittel":9,"Hart":13}}
 cal_per_hr = factors[sportart][intensity] * gewicht
-cal_burn = cal_per_hr * (dauer/60)
-fluid_loss = 0.7 * (dauer/60)
+cal_burn = cal_per_hr * (dauer / 60)
+fluid_loss = 0.7 * (dauer / 60)
 
 total_cal = grundumsatz + cal_burn
 total_fluid = fluessigkeit_tag + fluid_loss
@@ -131,11 +134,11 @@ else:
     interval = 60
 st.write(f"Empfohlenes Intake-Intervall: {interval} Minuten")
 # Anzahl der Intake-Ereignisse
-num_intakes = max(int(dauer // interval), 1)
-cal_per_intake = cal_burn / num_intakes
-fluid_per_intake = fluid_loss / num_intakes
+num_intake = max(int(dauer // interval), 1)
+cal_per_intake = cal_burn / num_intake
+fluid_per_intake = fluid_loss / num_intake
 schedule = []
-for i in range(1, num_intakes + 1):
+for i in range(1, num_intake + 1):
     time_min = round(i * interval)
     snack = recommend_snack(cal_per_intake)
     schedule.append({
@@ -153,60 +156,20 @@ st.subheader("📈 Deine Berechnungen")
 st.write(f"Trainingskalorien: {int(cal_burn)} kcal")
 st.write(f"Flüssigkeitsbedarf: {fluid_loss:.2f} L")
 
-# --- Snack recommendation ---
+# --- Chart & Map ---
 st.markdown("---")
-st.subheader("🍌 Snack vor Training")
-pre_cal = cal_burn * 0.3
-sn = recommend_snack(pre_cal)
-st.write(f"{sn['name']}: {sn['serving_qty']} {sn['serving_unit']} (~{int(sn['calories'])} kcal)")
-
-# --- Chart und Timeline ---
-st.markdown("---")
-st.subheader("📊 Verlauf während Training und Intake-Marker")
-# Erzeuge Zeitreihe
-mins = list(range(0, int(dauer)+1))
-cal_min = cal_per_hr/60
-fluid_min = 0.7/60
-timeline = []
-for m in mins:
-    timeline.append({
-        'Minute': m,
-        'Kalorien kumulativ': cal_min*m,
-        'Flüssigkeit kumulativ': fluid_min*m,
-        'Intake': m in intake_df.index
-    })
-tl_df = pd.DataFrame(timeline)
-# Zeichne mit Altair (Charts müssen in requirements: altair, vega_datasets)
-import altair as alt
-cal_line = alt.Chart(tl_df).mark_line().encode(
-    x='Minute',
-    y='Kalorien kumulativ',
-    tooltip=['Minute','Kalorien kumulativ']
-)
-fluid_line = alt.Chart(tl_df).mark_line(strokeDash=[5,5]).encode(
-    x='Minute',
-    y='Flüssigkeit kumulativ',
-    tooltip=['Minute','Flüssigkeit kumulativ']
-)
-intake_points = alt.Chart(tl_df[tl_df['Intake']]).mark_point(size=100, color='red').encode(
-    x='Minute',
-    y='Kalorien kumulativ',
-    tooltip=['Minute']
-)
-chart = (cal_line + fluid_line + intake_points).properties(width=700, height=300)
-st.altair_chart(chart, use_container_width=True)
-
-# --- Map der Route ---
-st.markdown("---")
-st.subheader("🗺️ Kartenansicht der Route")
-# Trackpunkte extrahieren
+st.subheader("📊 Verlauf + Route")
+mins = list(range(0, int(dauer) + 1))
+cal_m = cal_per_hr / 60
+fl_m = 0.7 / 60
+plot_df = pd.DataFrame({'Minute': mins, 'Kcal': [cal_m*m for m in mins], 'Flüssigkeit': [fl_m*m for m in mins]}).set_index('Minute')
+st.line_chart(plot_df)
 coords = []
-for track in gpxpy.parse(resp.text).tracks:
-    for segment in track.segments:
-        for pt in segment.points:
+for tr in gpxpy.parse(r.text).tracks:
+    for seg in tr.segments:
+        for pt in seg.points:
             coords.append({'lat': pt.latitude, 'lon': pt.longitude})
 if coords:
-    track_df = pd.DataFrame(coords)
-    st.map(track_df)
+    st.map(pd.DataFrame(coords))
 
 st.info("Timeline zeigt Intake-Momente (rot) zusammen mit Kcal- und Flüssigkeitsverlauf.")
