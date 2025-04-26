@@ -120,9 +120,24 @@ for q in queries:
         fdc_id = food.get('fdcId')
         name = food.get('description')
         details = get_food_details(fdc_id)
-        nutrients = {n['nutrientName']: n['value']
-                     for n in details.get('foodNutrients', [])}
-        cal100 = nutrients.get('Energy', 0)
+        # Extract nutrients robustly for FDC v1 and v2
+nutrients = {}
+for n in details.get('foodNutrients', []):
+    # FDC v1 structure: 'nutrient' dict nested
+    if 'nutrient' in n and isinstance(n['nutrient'], dict):
+        key = n['nutrient'].get('name') or n['nutrient'].get('nutrientName')
+        val = n.get('amount') or n.get('value')
+    else:
+        # FDC legacy structure
+        key = n.get('nutrientName')
+        val = n.get('value')
+    if key:
+        nutrients[key] = val or 0
+# Common nutrient keys may vary: try multiple variants
+cal100 = nutrients.get('Energy') or nutrients.get('energy') or nutrients.get('Calories') or 0
+fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
+prot100 = nutrients.get('Protein') or nutrients.get('protein') or 0
+carb100 = nutrients.get('Carbohydrate, by difference') or nutrients.get('Carbohydrates') or nutrients.get('Carbs') or 0
         fat100 = nutrients.get('Total lipid (fat)', 0)
         prot100 = nutrients.get('Protein', 0)
         carb100 = nutrients.get('Carbohydrate, by difference', 0)
