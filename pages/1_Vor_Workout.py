@@ -156,7 +156,7 @@ st.subheader("🗺️ Route & Intake-Punkte")
 m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
 if coords:
     # Route in dark gray
-    folium.PolyLine(coords, color='darkgray', weight=3).add_to(m)
+    folium.PolyLine(coords, color='blue', weight=3).add_to(m)
     # Intake markers: orange for eat, cyan for drink
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
