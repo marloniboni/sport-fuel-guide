@@ -148,9 +148,19 @@ for q in queries:
         # Display grams needed under chart
         col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
         # Build radar chart properly indented
-        # Debug: show dataframe
-        col2.write(dfm)
+        # Build the interactive radar (Smart-Spider) chart
         radar = (
+            alt.Chart(dfm)
+               .mark_area(interpolate='linear', opacity=0.5)
+               .encode(
+                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, dfm['Gramm'].max()])),
+                   color='Makronährstoff:N',
+                   tooltip=['Makronährstoff','Gramm']
+               )
+               .properties(width=150, height=150)
+               .interactive()
+        )
             alt.Chart(dfm)
                .mark_area(interpolate='linear', opacity=0.5)
                .encode(
