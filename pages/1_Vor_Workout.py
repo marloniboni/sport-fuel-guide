@@ -15,17 +15,19 @@ FS_CLIENT_SECRET = "367bfc354031445abe67c34459ea95d2"
 @st.cache_data
 def fetch_fs_token():
     """
-    Fetch OAuth2 Bearer token from FatSecret Platform.
+    Fetch OAuth2 Bearer token from FatSecret Platform using correct endpoint.
     """
-    token_url = "https://platform.fatsecret.com/connect/oauth2/token"
-    payload = {
-        'grant_type': 'client_credentials',
-        'client_id': FS_CLIENT_ID,
-        'client_secret': FS_CLIENT_SECRET
-    }
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    resp = requests.post(token_url, data=payload, headers=headers)
-    st.write("Token Fetch Status Code:", resp.status_code)
+    # Correct OAuth2 token endpoint
+    token_url = "https://oauth.fatsecret.com/connect/token"
+    # Use HTTP Basic Auth for client credentials
+    resp = requests.post(
+        token_url,
+        auth=(FS_CLIENT_ID, FS_CLIENT_SECRET),
+        data={'grant_type': 'client_credentials'}
+    )
+    if resp.status_code != 200:
+        st.error(f"Token-Error {resp.status_code}: {resp.text}")
+        return None
     try:
         data = resp.json()
     except ValueError:
