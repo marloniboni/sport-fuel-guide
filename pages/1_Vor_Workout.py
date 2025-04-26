@@ -42,8 +42,10 @@ def recommend_snack(cal_needed):
     above = [o for o in options if o['calories'] >= cal_needed]
     return min(above, key=lambda x: x['calories']) if above else max(options, key=lambda x: x['calories'])
 
+# --- App Title ---
 st.title("⚡ Vor-Workout Planung")
 
+# --- Session State check ---
 if "gewicht" not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
@@ -54,24 +56,44 @@ fluessigkeit_tag = st.session_state.fluessigkeit
 
 sportart = st.selectbox("Sportart", ["Laufen", "Radfahren", "Schwimmen", "Triathlon"])
 
-uploaded_file = st.file_uploader("GPX-Datei hochladen (Komoot/Strava)", type="gpx")
-if uploaded_file:
+# --- GPX-Link or file upload ---
+st.markdown("### GPX-Link oder Datei")
+route_url = st.text_input("GPX-Link zur Aktivität (z.B. Komoot/Strava)")
+uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
+
+def parse_gpx(gpx_text):
+    gpx = gpxpy.parse(gpx_text)
+    total_seconds = gpx.get_duration() or 0
+    dauer = total_seconds / 60
+    distanz = (gpx.length_3d() or 0) / 1000
+    return dauer, distanz
+
+if route_url:
     try:
-        gpx = gpxpy.parse(uploaded_file.read().decode("utf-8"))
-        total_seconds = gpx.get_duration() or 0
-        dauer = total_seconds / 60
-        distanz = (gpx.length_3d() or 0) / 1000
-        st.success(f"GPX erkannt: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
+        resp = requests.get(route_url)
+        resp.raise_for_status()
+        dauer, distanz = parse_gpx(resp.text)
+        st.success(f"Route geladen: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
     except Exception:
-        st.error("Fehler beim Parsen der GPX-Datei. Bitte überprüfe die Datei.")
+        st.error("Fehler beim Laden oder Parsen der GPX-URL.")
+        st.stop()
+elif uploaded_file:
+    try:
+        text = uploaded_file.read().decode("utf-8")
+        dauer, distanz = parse_gpx(text)
+        st.success(f"GPX-Datei erkannt: Dauer {dauer:.0f} min, Distanz {distanz:.2f} km")
+    except Exception:
+        st.error("Fehler beim Parsen der hochgeladenen GPX-Datei.")
         st.stop()
 else:
     st.markdown("### 🏋️ Was hast du geplant?")
     dauer = st.slider("Dauer des Trainings (in Minuten)", 15, 300, 60, step=5)
     distanz = st.number_input("Geplante Distanz (in km)", min_value=0.0, value=10.0)
 
+# --- Select intensity ---
 intensitaet = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
 
+# --- Estimate calories burned ---
 faktoren = {
     "Laufen": {"Leicht": 7, "Mittel": 9, "Hart": 12},
     "Radfahren": {"Leicht": 5, "Mittel": 7, "Hart": 10},
@@ -81,32 +103,39 @@ faktoren = {
 kalorien_pro_stunde = faktoren[sportart][intensitaet] * gewicht
 kalorien_training = kalorien_pro_stunde * (dauer / 60)
 
+# --- Estimate fluid loss ---
 fluessigkeit_training = (0.7 / 60) * dauer
 
+# --- Total needs ---
 kalorien_gesamt = grundumsatz + kalorien_training
 fluessigkeit_gesamt = fluessigkeit_tag + fluessigkeit_training
 
+# --- Display metrics ---
 st.markdown("---")
-st.subheader("📈 Berechnungen:")
-st.write(f"Kalorien Training: `{int(kalorien_training)} kcal`")
-st.write(f"Flüssigkeit Training: `{fluessigkeit_training:.2f} L`")
+st.subheader("📈 Deine Berechnungen:")
+st.write(f"**Trainingskalorien:** {int(kalorien_training)} kcal")
+st.write(f"**Flüssigkeitsbedarf Training:** {fluessigkeit_training:.2f} L")
 
+# --- Snack recommendation ---
 st.markdown("---")
-st.subheader("🍌 Snack-Empfehlung:")
+st.subheader("🍌 Snack-Empfehlung vor dem Training:")
 vorkalorien = kalorien_training * 0.3
 snack = recommend_snack(vorkalorien)
 st.write(f"**{snack['name']}**: {snack['serving_qty']} {snack['serving_unit']} (~{int(snack['calories'])} kcal)")
 
+# --- Visualize progression ---
 st.markdown("---")
-st.subheader("📊 Verlauf während des Trainings")
+st.subheader("📊 Verlauf von Kalorien und Flüssigkeit während des Trainings")
 minutes = list(range(0, int(dauer) + 1))
 cal_per_min = kalorien_pro_stunde / 60
 fluid_per_min = 0.7 / 60
 
-data = {'Minute': minutes,
-        'Kalorien kumulativ': [cal_per_min * m for m in minutes],
-        'Flüssigkeit kumulativ': [fluid_per_min * m for m in minutes]}
+data = {
+    'Minute': minutes,
+    'Kalorien kumulativ': [cal_per_min * m for m in minutes],
+    'Flüssigkeit kumulativ': [fluid_per_min * m for m in minutes]
+}
 df = pd.DataFrame(data).set_index('Minute')
 st.line_chart(df)
 
-st.info("Verlauf von Kalorien und Flüssigkeit im Zeitverlauf.")
+st.info("Der Chart zeigt Kalorien- und Flüssigkeitsanspruch im Zeitverlauf.")
