@@ -190,7 +190,7 @@ for q in queries:
         )
         spider1 = alt.layer(area1, line1).properties(width=250, height=250, title='Makronährstoffe')
         col2.altair_chart(spider1, use_container_width=False)
-        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13, tiles='CartoDB dark_matter')
+        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13, tiles='OpenStreetMap')
         if coords:
             folium.PolyLine(coords, color='#00ffff', weight=4).add_to(m)
             for t in events:
