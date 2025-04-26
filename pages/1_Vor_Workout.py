@@ -97,6 +97,17 @@ for q in queries:
         params={'method':'foods.search','search_expression':q or default_snacks[0],'format':'json'},
         auth=auth
     )
+    # Debug: Ausgabe des Search-API-Responses
+    st.write("FatSecret Search Status Code:", resp.status_code)
+    try:
+        st.json(resp.json())
+    except Exception:
+        st.write("Konnte JSON nicht anzeigen.")
+
+        "https://platform.fatsecret.com/rest/server.api",
+        params={'method':'foods.search','search_expression':q or default_snacks[0],'format':'json'},
+        auth=auth
+    )
     if resp.status_code != 200:
         st.warning("Fehler bei FatSecret API-Abfrage.")
         continue
