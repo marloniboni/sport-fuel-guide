@@ -1,13 +1,4 @@
-requirements.txt
-streamlit
-pandas
-gpxpy
-requests
-
-git add requirements.txt
-git commit -m "Install gpxpy so GPX parsing works on Streamlit Cloud"
-git push origin main
-
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import gpxpy
@@ -15,7 +6,8 @@ import requests
 import os
 from datetime import timedelta
 
-# -*- coding: utf-8 -*-
+# --- Hinweis: Bitte Dateinamen ohne Leerzeichen verwenden, z.B. '1_Vor_Workout.py' ---
+
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "your_app_id")
 APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
@@ -48,10 +40,11 @@ def recommend_snack(cal_needed):
     above = [o for o in options if o['calories'] >= cal_needed]
     return min(above, key=lambda x: x['calories']) if above else max(options, key=lambda x: x['calories'])
 
+# App Titel
 st.title("⚡ Vor-Workout Planung")
 st.write("Hier planst du deine Kohlenhydratzufuhr und Flüssigkeitsaufnahme **vor dem Training oder Wettkampf**.")
 
-# --- Voraussetzung: Grunddaten aus Home vorhanden? ---
+# Check session state
 if "gewicht" not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
@@ -60,10 +53,10 @@ gewicht = st.session_state.gewicht
 grundumsatz = st.session_state.grundumsatz
 fluessigkeit_tag = st.session_state.fluessigkeit
 
-# --- Trainingsart wählen ---
+# Sportart
 sportart = st.selectbox("Sportart", ["Laufen", "Radfahren", "Schwimmen", "Triathlon"])
 
-# --- GPX-Upload (optional) ---
+# GPX Datei Upload
 uploaded_file = st.file_uploader("GPX-Datei hochladen (Komoot/Strava)", type="gpx")
 if uploaded_file:
     try:
@@ -80,10 +73,10 @@ else:
     dauer = st.slider("Dauer des Trainings (in Minuten)", 15, 300, 60, step=5)
     distanz = st.number_input("Geplante Distanz (in km)", min_value=0.0, value=10.0)
 
-# --- Intensität wählen ---
+# Intensität
 intensitaet = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
 
-# --- Kalorienverbrauch schätzen ---
+# Kalorienverbrauch
 faktoren = {
     "Laufen": {"Leicht": 7, "Mittel": 9, "Hart": 12},
     "Radfahren": {"Leicht": 5, "Mittel": 7, "Hart": 10},
@@ -93,14 +86,14 @@ faktoren = {
 kalorien_pro_stunde = faktoren[sportart][intensitaet] * gewicht
 kalorien_training = kalorien_pro_stunde * (dauer / 60)
 
-# --- Flüssigkeitsbedarf fürs Training ---
-fluessigkeit_training = (0.7 / 60) * dauer  # 0.7 L per hour
+# Flüssigkeitsbedarf
+fluessigkeit_training = (0.7 / 60) * dauer
 
-# --- Gesamtbedarf ---
+# Gesamtbedarf
 kalorien_gesamt = grundumsatz + kalorien_training
 fluessigkeit_gesamt = fluessigkeit_tag + fluessigkeit_training
 
-# --- Ausgabe ---
+# Ausgabe
 st.markdown("---")
 st.subheader("📈 Deine Berechnungen:")
 st.write(f"**Geplanter Kalorienverbrauch im Training**: `{int(kalorien_training)} kcal`")
@@ -109,15 +102,14 @@ st.write("---")
 st.write(f"**Gesamter Kalorienbedarf heute**: `{int(kalorien_gesamt)} kcal`")
 st.write(f"**Gesamter Flüssigkeitsbedarf heute**: `{fluessigkeit_gesamt:.2f} L`")
 
-# --- Snack-Empfehlung vor Workout ---
+# Snack-Empfehlung
 st.markdown("---")
 st.subheader("🍌 Snack-Empfehlung vor dem Training:")
-vorkalorien = kalorien_training * 0.3  # 30% der Trainingskalorien vorab
+vorkalorien = kalorien_training * 0.3
 snack = recommend_snack(vorkalorien)
-st.write(f"Um ~{int(vorkalorien)} kcal vor dem Training zuzuführen, empfehlen wir: **{snack['name']}**")
-st.write(f"Portion: {snack['serving_qty']} {snack['serving_unit']} (~{int(snack['calories'])} kcal)")
+st.write(f"Empfehlung: **{snack['name']}**, Portion: {snack['serving_qty']} {snack['serving_unit']} (~{int(snack['calories'])} kcal)")
 
-# --- Verlauf visualisieren ---
+# Verlauf visualisieren
 st.markdown("---")
 st.subheader("📊 Verlauf von Kalorien und Flüssigkeit während des Trainings")
 minutes = list(range(0, int(dauer) + 1))
@@ -130,8 +122,5 @@ data = {
     'Kumulierte Flüssigkeit (L)': [fluid_per_min * m for m in minutes]
 }
 df = pd.DataFrame(data).set_index('Minute')
-
-# Plot mit Streamlit
 st.line_chart(df)
-
-st.info("Der Chart zeigt, wie sich dein Kalorienverbrauch und deine Flüssigkeitsabgabe über die Trainingszeit aufbauen.")
+st.info("Der Chart zeigt, wie sich dein Verbrauch und deine Flüssigkeitsabgabe über die Zeit aufbauen.")
