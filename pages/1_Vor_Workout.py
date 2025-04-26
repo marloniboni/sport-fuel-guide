@@ -189,7 +189,14 @@ for q in queries:
             color=alt.Color('Nährstoff:N', legend=None),
             tooltip=['Nährstoff','Menge']
         ).interactive()
-        spider2 = alt.layer(area2, line2).properties(width=200, height=200, title='Vitamine & Mineralstoffe')
+                # Debug: show micro and macro data
+        col2.write("Makro-Datenframe:")
+        col2.write(df_macro)
+        col2.write("Mikro-Datenframe:")
+        col2.write(df_micro)
+        # create interactive spiders
+        spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe').interactive()
+        spider2 = alt.layer(area2, line2).properties(width=200, height=200, title='Vitamine & Mineralstoffe').interactive()(width=200, height=200, title='Vitamine & Mineralstoffe')
 
         col2.altair_chart(alt.hconcat(spider1, spider2), use_container_width=False)
 
