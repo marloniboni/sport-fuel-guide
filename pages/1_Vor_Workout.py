@@ -13,20 +13,36 @@ import urllib.parse
 # --- Nutritionix API Setup ---
 APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
 APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
-API_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
+NUTRIX_SEARCH_URL = "https://trackapi.nutritionix.com/v2/search/instant"
+NUTRIX_NUTRIENTS_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
+
+headers = { 'x-app-id': APP_ID, 'x-app-key': APP_KEY }
 
 @st.cache_data
-def fetch_snack_options(query: str = "sports nutrition", limit: int = 20):
+def search_snacks(query: str = "sports nutrition", limit: int = 20):
     """
-    Fetch snack options based on a custom query and limit.
+    Search foods via Nutritionix instant search endpoint.
     """
-    headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY, 'Content-Type': 'application/json'}
-    data = {'query': query, 'limit': limit}
-    resp = requests.post(API_URL, headers=headers, json=data)
-    resp.raise_for_status()
-    return resp.json().get('foods', [])
+    params = {'query': query, 'branded': 'true'}
+    response = requests.get(NUTRIX_SEARCH_URL, headers=headers, params=params)
+    response.raise_for_status()
+    data = response.json()
+    # Combine branded and common
+    items = data.get('branded', [])[:limit]
+    return items
 
-# --- App Title & Data Check --- & Data Check ---
+@st.cache_data
+def fetch_nutrition(name: str):
+    """
+    Fetch macronutrients for a product name.
+    """
+    payload = {'query': name}
+    resp = requests.post(NUTRIX_NUTRIENTS_URL, headers={**headers, 'Content-Type':'application/json'}, json=payload)
+    resp.raise_for_status()
+    foods = resp.json().get('foods', [])
+    return foods[0] if foods else None
+
+# --- App Title & Data Check ---
 st.title("⚡ Vor-Workout Planung")
 if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
@@ -76,43 +92,39 @@ elif dauer <= 180:
 else:
     eat_i = 60
 drink_i = 15
-
 events = sorted(set(range(eat_i, int(dauer)+1, eat_i)) | set(range(drink_i, int(dauer)+1, drink_i)))
+
+# --- Intake plan table ---
 sched = []
 for t in events:
     row = {'Minute': t}
     if t % eat_i == 0:
         row['Essen (kcal)'] = int(cal_tot/(dauer/eat_i))
     if t % drink_i == 0:
-        row['Trinken (L)'] = round(flu_tot/(dauer/drink_i), 2)
+        row['Trinken (L)'] = round(flu_tot/(dauer/drink_i),2)
     sched.append(row)
 df_sched = pd.DataFrame(sched).set_index('Minute')
-
-# --- Intake plan table ---
 st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack-Optionen & Kauflinks ---
+# --- Snack options & links ---
 st.markdown("---")
-st.subheader("🍪 Snack-Optionen & Kauf-Links")
-# Benutzerdefinierte Suche nach Snacks
-def_query = "sports nutrition"
-query = st.text_input("Suchbegriff für Snacks", value=def_query)
+st.subheader("🍪 Snack-Optionen & Kauflinks")
+query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
 limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
 try:
-    snacks = fetch_snack_options(query=query, limit=limit)
+    snacks = search_snacks(query=query, limit=limit)
     if not snacks:
-        st.write("Keine Snack-Optionen gefunden für '" + query + "'.")
+        st.write(f"Keine Snacks gefunden für '{query}'.")
     else:
-        # Liste aller Snacks mit Kalorien und Shopping-Link
         for item in snacks:
             name = item['food_name']
-            cal = item.get('nf_calories', 'n/a')
-            serving_qty = item.get('serving_qty', '')
-            serving_unit = item.get('serving_unit', '')
+            nut = fetch_nutrition(name)
+            cal = nut['nf_calories'] if nut else 'n/a'
+            serving = f"{nut['serving_qty']} {nut['serving_unit']}" if nut else ''
             link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-            st.write(f"- [{name}]({link}): {cal} kcal · {serving_qty} {serving_unit}")
+            st.write(f"- [{name}]({link}): {cal} kcal · {serving}")
 except requests.HTTPError:
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
@@ -126,65 +138,52 @@ eat_events = set(range(eat_i, int(dauer)+1, eat_i))
 drink_events = set(range(drink_i, int(dauer)+1, drink_i))
 cal_amt = cal_tot/len(eat_events) if eat_events else 0
 flu_amt = flu_tot/len(drink_events) if drink_events else 0
-cum = 0
-cal_cum_int = []
+cum=0
+cal_cum_int=[]
 for m in mins:
-    if m in eat_events: cum += cal_amt
+    if m in eat_events: cum+=cal_amt
     cal_cum_int.append(cum)
-cum = 0
-flu_cum_int = []
+cum=0
+flu_cum_int=[]
 for m in mins:
-    if m in drink_events: cum += flu_amt
+    if m in drink_events: cum+=flu_amt
     flu_cum_int.append(cum)
-chart_df = pd.DataFrame({
-    'Minute': mins,
-    'Cal consumption': cal_cum_cons,
-    'Cal intake': cal_cum_int,
-    'Flu consumption': flu_cum_cons,
-    'Flu intake': flu_cum_int
-})
+chart_df=pd.DataFrame({ 'Minute': mins,'Cal consumption': cal_cum_cons,
+                        'Cal intake': cal_cum_int,'Flu consumption': flu_cum_cons,
+                        'Flu intake': flu_cum_int })
 
-# --- Two charts side by side ---
 st.markdown("---")
 st.subheader("📊 Kumulative Verbrauch vs. Zufuhr")
-cal_base = alt.Chart(chart_df).encode(x='Minute:Q')
-cal_line = cal_base.mark_line(color='orange').encode(y='Cal consumption:Q')
-cal_int_line = cal_base.mark_line(color='red', strokeDash=[4,2]).encode(y='Cal intake:Q')
-cal_viz = (cal_line + cal_int_line).properties(width=300, height=250, title='Kalorien')
-flu_base = alt.Chart(chart_df).encode(x='Minute:Q')
-flu_line = flu_base.mark_line(color='blue').encode(y='Flu consumption:Q')
-flu_int_line = flu_base.mark_line(color='cyan', strokeDash=[4,2]).encode(y='Flu intake:Q')
-flu_viz = (flu_line + flu_int_line).properties(width=300, height=250, title='Flüssigkeit')
-st.altair_chart(alt.hconcat(cal_viz, flu_viz), use_container_width=True)
+cal_base=alt.Chart(chart_df).encode(x='Minute:Q')
+cal_line=cal_base.mark_line(color='orange').encode(y='Cal consumption:Q')
+cal_int_line=cal_base.mark_line(color='red',strokeDash=[4,2]).encode(y='Cal intake:Q')
+flu_base=alt.Chart(chart_df).encode(x='Minute:Q')
+flu_line=flu_base.mark_line(color='blue').encode(y='Flu consumption:Q')
+flu_int_line=flu_base.mark_line(color='cyan',strokeDash=[4,2]).encode(y='Flu intake:Q')
+st.altair_chart(alt.hconcat((cal_line+cal_int_line).properties(width=300,title='Kalorien'),
+                            (flu_line+flu_int_line).properties(width=300,title='Flüssigkeit')),
+                 use_container_width=True)
 
 # --- Interactive Map & GPX Export ---
 st.markdown("---")
 st.subheader("🗺️ Route & Intake-Punkte")
-m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
+m=folium.Map(location=coords[0] if coords else [0,0],zoom_start=13)
 if coords:
-    folium.PolyLine(coords, color='blue', weight=3).add_to(m)
+    folium.PolyLine(coords,color='blue',weight=3).add_to(m)
     for t in events:
-        idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        if t in eat_events:
-            color = 'orange'
-        elif t in drink_events:
-            color = 'cyan'
-        folium.CircleMarker(location=(lat, lon), radius=6,
-                            popup=f"{t} Min", color=color, fill=True).add_to(m)
-st_folium(m, width=700, height=500)
+        idx=min(int(t/dauer*len(coords)),len(coords)-1)
+        lat,lon=coords[idx]
+        color='orange' if t in eat_events else 'cyan'
+        folium.CircleMarker((lat,lon),radius=6,popup=f"{t} Min",color=color,fill=True).add_to(m)
+st_folium(m,width=700,height=500)
 
-# GPX export
 if 'gpx_obj' in locals():
-    export = gpx_module.GPX()
-    trk = gpx_module.GPXTrack(); export.tracks.append(trk)
-    seg = gpx_module.GPXTrackSegment(); trk.segments.append(seg)
-    for lat, lon in coords: seg.points.append(gpx_module.GPXTrackPoint(lat, lon))
-    for t in events:
-        idx = min(int(t/dauer*len(coords)), len(coords)-1)
-        lat, lon = coords[idx]
-        export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
-    st.download_button("Download GPX mit Intake-Punkten", export.to_xml(),
-                       file_name="route_intake.gpx", mime="application/gpx+xml")
+    export=gpx_module.GPX();trk=gpx_module.GPXTrack();export.tracks.append(trk)
+    seg=gpx_module.GPXTrackSegment();trk.segments.append(seg)
+    [seg.points.append(gpx_module.GPXTrackPoint(lat,lon)) for lat,lon in coords]
+    [export.waypoints.append(gpx_module.GPXWaypoint(coords[min(int(t/dauer*len(coords)),len(coords)-1)][0],
+         coords[min(int(t/dauer*len(coords)),len(coords)-1)][1],name=f"{t} Min")) for t in events]
+    st.download_button("Download GPX mit Intake-Punkten",export.to_xml(),
+                       file_name="route_intake.gpx",mime="application/gpx+xml")
 
-st.info("Kumulierte Charts und Snack-Optionen mit Kauflinks.")
+st.info("Komplette Workflow mit Snack-Suche aus API.")
