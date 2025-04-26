@@ -1,7 +1,5 @@
 git add requirements.txt
 git commit -m "Add requirements.txt for Streamlit app dependencies"
-git push origin main
-
 
 import streamlit as st
 import pandas as pd
