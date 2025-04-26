@@ -161,14 +161,11 @@ for q in queries:
             'Makronährstoff': ['gesättigte Fette','einfach ungesättigte Fette','mehrfach ungesättigte Fette','Ballaststoffe','Zucker','Protein'],
             'Gramm': [sat_fat, mono_fat, poly_fat, fiber, sugar, prot]
         })
-        # select micro nutrients: vitamins & minerals
-        vit_keys = ['Vitamin C, total ascorbic acid','Vitamin A, IU','Vitamin D (D2 + D3)','Vitamin E (alpha-tocopherol)','Calcium, Ca','Iron, Fe','Magnesium, Mg','Potassium, K']
-        micro = []
-        for k in vit_keys:
-            val = nutrients.get(k) or 0
-            micro.append({'Nährstoff': k, 'Menge': val})
-        df_micro = pd.DataFrame(micro)
-        # draw two spiders side by side
+        # only show macronutrient spider without fats breakdown and vitamins/minerals
+        df_macro = pd.DataFrame({
+            'Makronährstoff': ['Ballaststoffe','Zucker','Protein'],
+            'Gramm': [fiber, sugar, prot]
+        })
         area1 = alt.Chart(df_macro).mark_area(interpolate='linear', opacity=0.3).encode(
             theta=alt.Theta('Makronährstoff:N', sort=df_macro['Makronährstoff'].tolist()),
             radius=alt.Radius('Gramm:Q'),
@@ -181,28 +178,7 @@ for q in queries:
             tooltip=['Makronährstoff','Gramm']
         ).interactive()
         spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
-
-        area2 = alt.Chart(df_micro).mark_area(interpolate='linear', opacity=0.3).encode(
-            theta=alt.Theta('Nährstoff:N', sort=vit_keys),
-            radius=alt.Radius('Menge:Q'),
-            color=alt.Color('Nährstoff:N', legend=None)
-        )
-        line2 = alt.Chart(df_micro).mark_line(point=True).encode(
-            theta=alt.Theta('Nährstoff:N', sort=vit_keys),
-            radius=alt.Radius('Menge:Q'),
-            color=alt.Color('Nährstoff:N', legend=None),
-            tooltip=['Nährstoff','Menge']
-        ).interactive()
-                # Debug: show micro and macro data
-        col2.write("Makro-Datenframe:")
-        col2.write(df_macro)
-        col2.write("Mikro-Datenframe:")
-        col2.write(df_micro)
-        # create interactive spiders
-        spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe').interactive()
-        spider2 = alt.layer(area2, line2).properties(width=200, height=200, title='Vitamine & Mineralstoffe').interactive()(width=200, height=200, title='Vitamine & Mineralstoffe')
-
-        col2.altair_chart(alt.hconcat(spider1, spider2), use_container_width=False)
+        col2.altair_chart(spider1, use_container_width=False), use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
