@@ -1,10 +1,5 @@
-git add requirements.txt
-git commit -m "Add requirements.txt for dependencies"
-
 import streamlit as st
 import pandas as pd
-import gpxpy
-import io
 import requests
 import os
 from datetime import timedelta
@@ -38,10 +33,7 @@ def fetch_nutrition(product_name):
 CANDIDATE_SNACKS = ['Clif Bar', 'Honey Stinger Gel', 'Gatorade']
 @st.cache_data
 def recommend_snack(cal_needed):
-    options = []
-    for snack in CANDIDATE_SNACKS:
-        info = fetch_nutrition(snack)
-        options.append(info)
+    options = [fetch_nutrition(snack) for snack in CANDIDATE_SNACKS]
     above = [o for o in options if o['calories'] >= cal_needed]
     return min(above, key=lambda x: x['calories']) if above else max(options, key=lambda x: x['calories'])
 
@@ -85,11 +77,11 @@ fluessigkeit_gesamt = fluessigkeit_tag + fluessigkeit_training
 # --- Ausgabe ---
 st.markdown("---")
 st.subheader("📈 Deine Berechnungen:")
-st.write(f"**Geplanter Kalorienverbrauch im Training**: `{int(kalorien_training)} kcal`" )
-st.write(f"**Zusätzlicher Flüssigkeitsbedarf fürs Training**: `{fluessigkeit_training:.2f} L`" )
+st.write(f"**Geplanter Kalorienverbrauch im Training**: `{int(kalorien_training)} kcal`")
+st.write(f"**Zusätzlicher Flüssigkeitsbedarf fürs Training**: `{fluessigkeit_training:.2f} L`")
 st.write("---")
-st.write(f"**Gesamter Kalorienbedarf heute**: `{int(kalorien_gesamt)} kcal`" )
-st.write(f"**Gesamter Flüssigkeitsbedarf heute**: `{fluessigkeit_gesamt:.2f} L`" )
+st.write(f"**Gesamter Kalorienbedarf heute**: `{int(kalorien_gesamt)} kcal`")
+st.write(f"**Gesamter Flüssigkeitsbedarf heute**: `{fluessigkeit_gesamt:.2f} L`")
 
 # --- Snack-Empfehlung vor Workout ---
 st.markdown("---")
@@ -102,7 +94,6 @@ st.write(f"Portion: {snack['serving_qty']} {snack['serving_unit']} (~{int(snack[
 # --- Verlauf visualisieren ---
 st.markdown("---")
 st.subheader("📊 Verlauf von Kalorien und Flüssigkeit während des Trainings")
-# Erstelle Zeitreihe pro Minute
 minutes = list(range(0, dauer + 1))
 cal_per_min = kalorien_pro_stunde / 60
 fluid_per_min = 0.7 / 60
