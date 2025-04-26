@@ -167,14 +167,8 @@ for q in queries:
                    tooltip=['Makronährstoff','Gramm']
                )
                .interactive()
-        ),
-                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-                   color=alt.Color('Makronährstoff:N', legend=None),
-                   tooltip=['Makronährstoff','Gramm']
-               )
-               .interactive()
         )
-        spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
+        spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
         col2.altair_chart(spider1, use_container_width=False)
         # --- Map & GPX Export wieder hinzufügen ---
         m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
