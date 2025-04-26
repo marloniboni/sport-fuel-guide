@@ -14,15 +14,32 @@ FS_CLIENT_ID = os.getenv("FASTSECRET_CLIENT_ID", "9ced8a2df62549a594700464259c95
 FS_CLIENT_SECRET = os.getenv("FASTSECRET_CLIENT_SECRET", "367bfc354031445abe67c34459ea95d2")
 @st.cache_data
 def fetch_fs_token():
-    # OAuth2 client credentials
+    """
+    Fetch OAuth2 Bearer token from FatSecret.
+    """
     token_url = "https://platform.fatsecret.com/connect/token"
-    payload = {'grant_type':'client_credentials'}
-    resp = requests.post(token_url, data=payload, auth=(FS_CLIENT_ID, FS_CLIENT_SECRET))
+    payload = {'grant_type': 'client_credentials'}
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    resp = requests.post(
+        token_url,
+        data=payload,
+        auth=(FS_CLIENT_ID, FS_CLIENT_SECRET),
+        headers=headers
+    )
+    # Debugging output
+    st.write("Token Fetch Status Code:", resp.status_code)
+    st.write("Token Fetch Response Text (truncated):", resp.text[:200])
     if resp.status_code != 200:
-        st.error(f"Token-Fehler: {resp.status_code} - {resp.text}")
+        st.error(f"Token-Fehler: {resp.status_code}")
         return None
     try:
-        return resp.json().get('access_token')
+        token = resp.json().get('access_token')
+        if not token:
+            st.error(f"Kein access_token im Response. Ganzes JSON: {resp.json()}")
+        return token
+    except ValueError:
+        st.error(f"Token-JSON-Decode-Fehler: {resp.text}")
+        return None
     except ValueError:
         st.error(f"Token JSON-Decode Fehler: {resp.text}")
         return None
