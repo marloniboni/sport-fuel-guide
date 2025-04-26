@@ -113,15 +113,39 @@ df_time['Fluid net'] = df_time['Minute'].apply(lambda m: -flu_cons[m] + (flu_tot
 df_time['Calorie reserve'] = df_time['Calorie net'].cumsum()
 df_time['Fluid reserve'] = df_time['Fluid net'].cumsum()
 
-# --- Net charts ---
+# --- Visualisierung: Verbrauch & Intake Seite an Seite ---
 st.markdown("---")
-st.subheader("📈 Netto-Verlauf: Reserve Kalorien & Flüssigkeit")
-base = alt.Chart(df_time).encode(x='Minute:Q')
-line_cal = base.mark_line(color='orange').encode(y='Calorie reserve:Q')
-line_flu = base.mark_line(color='blue').encode(y='Fluid reserve:Q')
-st.altair_chart(line_cal + line_flu, use_container_width=True)
+st.subheader("📊 Verbrauch vs. Aufnahme")
+# Minuten und Intake Events
+eat_events = set(range(eat_i, int(dauer)+1, eat_i))
+drink_events = set(range(drink_i, int(dauer)+1, drink_i))
 
-# --- Interactive Map & GPX Export ---
+# DataFrame für Charts
+chart_df = pd.DataFrame({
+    'Minute': mins,
+    'Calorie consumption': [cal_hr/60 * m for m in mins],
+    'Calorie intake': [cal_tot/len(eat_events) if m in eat_events else 0 for m in mins],
+    'Fluid consumption': [0.7/60 * m for m in mins],
+    'Fluid intake': [flu_tot/len(drink_events) if m in drink_events else 0 for m in mins]
+})
+
+# Kalorien Chart
+cal_base = alt.Chart(chart_df).encode(x='Minute:Q')
+cal_line = cal_base.mark_line(color='orange').encode(y='Calorie consumption:Q')
+cal_bar = cal_base.mark_bar(opacity=0.5, color='red').encode(y='Calorie intake:Q')
+cal_chart = (cal_line + cal_bar).properties(width=300, height=250, title='Kalorien')
+
+# Flüssigkeit Chart
+flu_base = alt.Chart(chart_df).encode(x='Minute:Q')
+flu_line = flu_base.mark_line(color='blue').encode(y='Fluid consumption:Q')
+flu_bar = flu_base.mark_bar(opacity=0.5, color='cyan').encode(y='Fluid intake:Q')
+flu_chart = (flu_line + flu_bar).properties(width=300, height=250, title='Flüssigkeit')
+
+# Charts horizontal anordnen
+combined = alt.hconcat(cal_chart, flu_chart)
+st.altair_chart(combined, use_container_width=True)
+
+# --- Interactive Map & GPX Export --- & GPX Export ---
 st.markdown("---")
 st.subheader("🗺️ Route & Intake-Punkte")
 m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13)
