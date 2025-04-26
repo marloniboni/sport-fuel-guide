@@ -2,6 +2,7 @@ streamlit
 pandas
 gpxpy
 requests
+folium
 
 # Optional: fixe Versionen für Reproduzierbarkeit
 # streamlit>=1.0.0
