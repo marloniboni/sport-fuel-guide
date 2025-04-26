@@ -5,6 +5,7 @@ requests
 folium
 streamlit-folium
 matplotlib
+requests-oauthlib  
 
 
 # Optional: fixe Versionen für Reproduzierbarkeit
