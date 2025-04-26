@@ -140,6 +140,8 @@ st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
 # Suchen nach Snacks
 eat_query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
 limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
+import math
+import matplotlib.pyplot as plt
 try:
     snacks = search_snacks(query=eat_query, limit=limit)
     if not snacks:
@@ -163,22 +165,24 @@ try:
             fat = macros.get('fat', 0)
             protein = macros.get('protein', 0)
             carbs = macros.get('carbs', 0)
-            # Display text summary
-            st.write(f"**{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
-            # Visual macro distribution
-            df_macro = pd.DataFrame({
-                'Makronährstoff': ['Fett', 'Protein', 'Kohlenhydrate'],
-                'Gramm': [fat, protein, carbs]
-            })
-            chart = alt.Chart(df_macro).mark_bar().encode(
-                x='Makronährstoff',
-                y='Gramm',
-                tooltip=['Makronährstoff', 'Gramm']
-            ).properties(width=300, height=150)
-            st.altair_chart(chart, use_container_width=False)
-    
+            # Layout: Text & Radar
+            col1, col2 = st.columns([3,1])
+            col1.write(f"**{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
+            # Radar Chart
+            categories = ['Fett','Protein','Kohlenhydrate']
+            values = [fat, protein, carbs]
+            angles = [n/float(len(categories))*2*math.pi for n in range(len(categories))]
+            values.append(values[0])
+            angles.append(angles[0])
+            fig = plt.figure()
+            ax = fig.add_subplot(111, polar=True)
+            ax.plot(angles, values)
+            ax.fill(angles, values, alpha=0.3)
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(categories)
+            ax.set_yticklabels([])
+            col2.pyplot(fig)
 except requests.HTTPError:
-    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
 # --- Build time series for cumulative charts ---
