@@ -131,7 +131,7 @@ for q in queries:
         prot=prot100*grams/100
         fiber100=nutrients.get('Fiber, total dietary') or nutrients.get('Dietary fiber') or 0
         fiber=fiber100*grams/100
-        sugar100=nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
+        sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or nutrients.get('Carbohydrate, by difference') or 0
         sugar=sugar100*grams/100
                 # include fat, fiber, sugar, protein in macro spider
         fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
