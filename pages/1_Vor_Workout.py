@@ -16,21 +16,17 @@ APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
 API_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
 
 @st.cache_data
-def fetch_nutrition(product_name):
+def fetch_snack_options(query: str = "sports nutrition", limit: int = 20):
+    """
+    Fetch snack options based on a custom query and limit.
+    """
     headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY, 'Content-Type': 'application/json'}
-    resp = requests.post(API_URL, headers=headers, json={'query': product_name})
-    resp.raise_for_status()
-    return resp.json().get('foods', [])[0]
-
-@st.cache_data
-def fetch_snack_options(limit=20):
-    headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY, 'Content-Type': 'application/json'}
-    data = {'query': 'sports nutrition', 'limit': limit}
+    data = {'query': query, 'limit': limit}
     resp = requests.post(API_URL, headers=headers, json=data)
     resp.raise_for_status()
     return resp.json().get('foods', [])
 
-# --- App Title & Data Check ---
+# --- App Title & Data Check --- & Data Check ---
 st.title("⚡ Vor-Workout Planung")
 if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
@@ -97,21 +93,26 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack options from API ---
+# --- Snack-Optionen & Kauflinks ---
 st.markdown("---")
 st.subheader("🍪 Snack-Optionen & Kauf-Links")
+# Benutzerdefinierte Suche nach Snacks
+def_query = "sports nutrition"
+query = st.text_input("Suchbegriff für Snacks", value=def_query)
+limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
 try:
-    snacks = fetch_snack_options(limit=30)
+    snacks = fetch_snack_options(query=query, limit=limit)
     if not snacks:
-        st.write("Keine Snack-Optionen gefunden.")
+        st.write("Keine Snack-Optionen gefunden für '" + query + "'.")
     else:
-        # Zeige alle Snacks mit Kalorien und Link
+        # Liste aller Snacks mit Kalorien und Shopping-Link
         for item in snacks:
             name = item['food_name']
-            cal = item['nf_calories']
-            serving = f"{item['serving_qty']} {item['serving_unit']}"
+            cal = item.get('nf_calories', 'n/a')
+            serving_qty = item.get('serving_qty', '')
+            serving_unit = item.get('serving_unit', '')
             link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-            st.write(f"- [{name}]({link}): {cal} kcal · {serving}")
+            st.write(f"- [{name}]({link}): {cal} kcal · {serving_qty} {serving_unit}")
 except requests.HTTPError:
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
