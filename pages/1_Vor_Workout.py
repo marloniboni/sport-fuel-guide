@@ -169,7 +169,7 @@ for q in queries:
                .interactive()
         )
         radar = (area + line).properties(width=150, height=150)
-        col2.altair_chart(radar, use_container_width=False)(radar, use_container_width=False)
+        col2.altair_chart(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
