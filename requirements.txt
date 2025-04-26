@@ -4,6 +4,7 @@ gpxpy
 requests
 folium
 streamlit-folium
+matplotlib
 
 
 # Optional: fixe Versionen für Reproduzierbarkeit
