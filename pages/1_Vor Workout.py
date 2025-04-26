@@ -1,3 +1,13 @@
+requirements.txt
+streamlit
+pandas
+gpxpy
+requests
+
+git add requirements.txt
+git commit -m "Install gpxpy so GPX parsing works on Streamlit Cloud"
+git push origin main
+
 import streamlit as st
 import pandas as pd
 import gpxpy
