@@ -18,8 +18,14 @@ def fetch_fs_token():
     token_url = "https://platform.fatsecret.com/connect/token"
     payload = {'grant_type':'client_credentials'}
     resp = requests.post(token_url, data=payload, auth=(FS_CLIENT_ID, FS_CLIENT_SECRET))
-    resp.raise_for_status()
-    return resp.json().get('access_token')
+    if resp.status_code != 200:
+        st.error(f"Token-Fehler: {resp.status_code} - {resp.text}")
+        return None
+    try:
+        return resp.json().get('access_token')
+    except ValueError:
+        st.error(f"Token JSON-Decode Fehler: {resp.text}")
+        return None
 
 # --- App Title & Data Check ---
 st.title("⚡ Vor-Workout Planung")
@@ -96,8 +102,16 @@ snack_query = st.text_input("Snack-Name suchen (optional)", value="")
 default_snacks = ["Clif Bar","Honey Stinger Gel","Gatorade","Powerbar","Isostar Riegel"]
 queries = [snack_query] if snack_query.strip() else default_snacks
 token = fetch_fs_token()
+if not token:
+    st.warning("Konnte kein Access Token von FatSecret abrufen. Snacks werden übersprungen.")
+    skip_fs = True
+else:
+    skip_fs = False
 headers = {'Authorization': f"Bearer {token}"}
-for q in queries:
+if skip_fs:
+    pass  # skip snack block
+else:
+    for q in queries:
     if not snack_query.strip(): st.markdown(f"**Vorschlag:** {q}")
     # Search using Food Search v2
     search_resp = requests.get(
