@@ -123,9 +123,11 @@ try:
             nut = fetch_nutrition(name)
             cal = nut['nf_calories'] if nut else 'n/a'
             serving = f"{nut['serving_qty']} {nut['serving_unit']}" if nut else ''
-            link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-            st.write(f"- [{name}]({link}): {cal} kcal · {serving}")
+            # Use brand_name from API for link if available
+            brand = item.get('brand_name', 'Hersteller')
+            st.write(f"- {name} ({brand}): {cal} kcal · {serving}")
 except requests.HTTPError:
+    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
 # --- Build time series for cumulative charts ---
