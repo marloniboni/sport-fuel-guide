@@ -138,7 +138,7 @@ for q in queries:
         if img_url:
             col1.image(img_url,width=80)
         col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
-        # Prepare data including sugar if available
+                # Prepare data including sugar if available
         sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
         sugar = sugar100 * grams/100
         dfm = pd.DataFrame({
@@ -147,21 +147,20 @@ for q in queries:
         })
         # Display grams needed under chart
         col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
-        # Build radar chart properly indented
-                        # Build the interactive radar (Smart-Spider) chart
+        # Build the interactive radar (Smart-Spider) chart
         radar = (
             alt.Chart(dfm)
-               .mark_area(interpolate='linear', opacity=0.5)
-               .encode(
-                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
-                   radius=alt.Radius('Gramm:Q'),
-                   color='Makronährstoff:N',
-                   tooltip=['Makronährstoff','Gramm:Q']
-               )
-               .properties(width=150, height=150)
-               .interactive()
+             .mark_area(interpolate='linear', opacity=0.5)
+             .encode(
+                 theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+                 radius=alt.Radius('Gramm:Q'),
+                 color='Makronährstoff:N',
+                 tooltip=['Makronährstoff','Gramm:Q']
+             )
+             .properties(width=150, height=150)
+             .interactive()
         )
-        col2.altair_chart(radar, use_container_width=False)
+        col2.altair_chart(radar, use_container_width=False)(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
