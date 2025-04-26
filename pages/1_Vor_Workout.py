@@ -161,7 +161,6 @@ for q in queries:
                .interactive()
         )
         col2.altair_chart(radar, use_container_width=False)
-)
 col2.altair_chart(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
