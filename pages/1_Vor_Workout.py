@@ -102,21 +102,23 @@ st.table(df_sched)
 # --- Snack-Empfehlungen pro Intake ---
 st.markdown("---")
 st.subheader("🍪 Snack-Empfehlungen pro Intake")
-# Für jede Essens-Einheit
-for t in eat_events:
+# Essens-Einheiten aus Intake-Plan
+eat_events = [int(idx) for idx in df_sched.index if 'Essen' in df_sched.columns or 'Essen (kcal)' in df_sched.columns]
+if not eat_events:
+    st.write("Keine Essens-Einheit vorhanden.")
+else:
     required = cal_tot/(dauer/eat_i)
-    st.write(f"**Minute {t}: benötigte Energie** ~{int(required)} kcal")
-    # Candidate Snacks
     options = [fetch_nutrition(sn) for sn in CANDIDATE_SNACKS]
-    # Sortieren nach Abweichung vom Bedarf
     options = sorted(options, key=lambda x: abs(x['nf_calories'] - required))
-    for opt in options:
-        name = opt['food_name']
-        cal = opt['nf_calories']
-        qty = opt['serving_qty']
-        unit = opt['serving_unit']
-        link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-        st.write(f"- [{name}]({link}): {cal} kcal · {qty} {unit}")
+    for t in eat_events:
+        st.write(f"**Minute {t}: benötigte Energie** ~{int(required)} kcal")
+        for opt in options:
+            name = opt['food_name']
+            cal = opt['nf_calories']
+            qty = opt['serving_qty']
+            unit = opt['serving_unit']
+            link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
+            st.write(f"- [{name}]({link}): {cal} kcal · {qty} {unit}")
 
 # --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
