@@ -86,46 +86,52 @@ st.markdown("---")
 st.subheader("🍪 Snack-Optionen über FatSecret API")
 required_cal = cal_tot/(dauer/eat_i)
 st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
-snack_query = st.text_input("Snack-Name suchen", value="Clif Bar")
-if snack_query:
-    # Search foods
+snack_query = st.text_input("Snack-Name suchen (optional)", value="")
+# Default-Snacks, wenn keine Eingabe erfolgt
+default_snacks = ["Clif Bar", "Honey Stinger Gel", "Gatorade", "Powerbar", "Isostar Riegel"]
+queries = [snack_query] if snack_query.strip() else default_snacks
+for q in queries:
+    st.markdown(f"**Vorschlag:** {q}") if not snack_query.strip() else None
     resp = requests.get(
         "https://platform.fatsecret.com/rest/server.api",
-        params={ 'method':'foods.search', 'search_expression': snack_query, 'format':'json' },
+        params={'method':'foods.search','search_expression':q or default_snacks[0],'format':'json'},
         auth=auth
     )
-    if resp.status_code == 200:
-        items = resp.json().get('foods', {}).get('food', [])
-        for item in items[:5]:
-            fid = item.get('food_id')
-            name = item.get('food_name')
-            # Fetch details
-            dresp = requests.get(
-                "https://platform.fatsecret.com/rest/server.api",
-                params={ 'method':'food.get', 'food_id': fid, 'format':'json' },
-                auth=auth
-            )
-            data = dresp.json().get('food', {})
-            servings = data.get('servings', {}).get('serving', [])
-            if isinstance(servings, dict): servings = [servings]
-            for serv in servings:
-                cal = float(serv.get('calories', 0))
-                fat = float(serv.get('fat', 0))
-                protein = float(serv.get('protein', 0))
-                carbs = float(serv.get('carbohydrate', 0))
-                num = required_cal / cal if cal>0 else 0
-                col1, col2 = st.columns([2,1])
-                col1.markdown(f"**{name}**: {cal} kcal/Portion · {num:.1f} Portion(en)")
-                dfm = pd.DataFrame({ 'Makronährstoff':['Fett','Protein','Kohlenhydrate'], 'Gramm':[fat,protein,carbs] })
-                radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
-                    theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate']),
-                    radius=alt.Radius('Gramm:Q'), color='Makronährstoff:N',
-                    tooltip=['Makronährstoff','Gramm']
-                ).properties(width=150, height=150)
-                col2.altair_chart(radar, use_container_width=False)
-    else:
+    if resp.status_code != 200:
         st.warning("Fehler bei FatSecret API-Abfrage.")
-
+        continue
+    items = resp.json().get('foods', {}).get('food', [])
+    if not items:
+        st.write(f"Keine Snacks gefunden für '{q}'.")
+    for item in items[:5]:
+        fid = item.get('food_id')
+        name = item.get('food_name')
+        dresp = requests.get(
+            "https://platform.fatsecret.com/rest/server.api",
+            params={'method':'food.get','food_id':fid,'format':'json'},
+            auth=auth
+        )
+        data = dresp.json().get('food', {})
+        servings = data.get('servings', {}).get('serving', [])
+        if isinstance(servings, dict): servings = [servings]
+        for serv in servings:
+            cal = float(serv.get('calories', 0))
+            fat = float(serv.get('fat', 0))
+            protein = float(serv.get('protein', 0))
+            carbs = float(serv.get('carbohydrate', 0))
+            num = required_cal / cal if cal > 0 else 0
+            col1, col2 = st.columns([2,1])
+            col1.markdown(f"**{name}**: {cal:.0f} kcal/Portion · **{num:.2f} Portion(en)**")
+            dfm = pd.DataFrame({
+                'Makronährstoff':['Fett','Protein','Kohlenhydrate'],
+                'Gramm':[fat, protein, carbs]
+            })
+            radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
+                theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate']),
+                radius=alt.Radius('Gramm:Q'), color='Makronährstoff:N',
+                tooltip=['Makronährstoff','Gramm']
+            ).properties(width=150, height=150)
+            col2.altair_chart(radar, use_container_width=False)
 # --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
 c_rate = cal_hr/60
