@@ -55,43 +55,47 @@ def parse_gpx(gpx_text):
 
 # --- Input: GPX link or file ---
 st.markdown("### GPX-Link oder Datei eingeben")
-route_url = st.text_input("Füge hier den Komoot/Strava GPX-Link ein:")
+route_url = st.text_input("Füge hier einen Komoot/Strava-Tour-Link ein:")
 uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
 
+duration, distanz = None, None
 if route_url:
     try:
-        # Detect Komoot tour links and convert to API GPX endpoint
-        if "komoot.com" in route_url and "/tour/" in route_url:
+        resp = requests.get(route_url)
+        # If Komoot embed or tour URL ends with .gpx, download directly
+        if 'komoot.com' in route_url and not route_url.endswith('.gpx'):
+            # Try embed -> construct .gpx link
             id_match = re.search(r"/tour/(\d+)", route_url)
             token_match = re.search(r"share_token=([^&]+)", route_url)
             if id_match:
                 tour_id = id_match.group(1)
                 token = token_match.group(1) if token_match else None
-                base = f"https://api.komoot.de/v007/tours/{tour_id}.gpx"
+                base = f"https://www.komoot.com/tour/{tour_id}.gpx"
                 download_url = base + (f"?share_token={token}" if token else "")
                 resp = requests.get(download_url)
-            else:
-                resp = requests.get(route_url)
-        else:
-            resp = requests.get(route_url)
         resp.raise_for_status()
-        dauer, distanz = parse_gpx(resp.text)
-        st.success(f"GPX geladen: {dauer:.0f} min, {distanz:.2f} km")
-    except Exception as e:
-        st.error(f"Fehler beim Laden/Parsen der GPX-URL: {e}")
+        duration, distanz = parse_gpx(resp.text)
+        st.success(f"GPX geladen: {duration:.0f} min, {distanz:.2f} km")
+    except requests.HTTPError as e:
+        if e.response.status_code == 403:
+            st.error("Komoot blockiert den direkten Download. Bitte exportiere die GPX-Datei manuell unter 'Teilen → Export GPX' und lade sie hier hoch.")
+        else:
+            st.error(f"Fehler beim Laden/Parsen der GPX-URL: {e}")
         st.stop()
 elif uploaded_file:
     try:
         txt = uploaded_file.read().decode("utf-8")
-        dauer, distanz = parse_gpx(txt)
-        st.success(f"Datei geladen: {dauer:.0f} min, {distanz:.2f} km")
+        duration, distanz = parse_gpx(txt)
+        st.success(f"Datei geladen: {duration:.0f} min, {distanz:.2f} km")
     except Exception as e:
         st.error(f"Fehler beim Parsen der Datei: {e}")
         st.stop()
 else:
     st.markdown("### Oder manuell eingeben")
-    dauer = st.slider("Dauer (Min)", 15, 300, 60)
+    duration = st.slider("Dauer (Min)", 15, 300, 60)
     distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
+
+dauer = duration
 
 # --- Select intensity ---
 intensity = st.select_slider("Intensität", ["Leicht", "Mittel", "Hart"])
@@ -110,13 +114,13 @@ fluid_loss = 0.7 * (dauer / 60)
 total_cal = grundumsatz + cal_burn
 total_fluid = fluessigkeit_tag + fluid_loss
 
-# --- Display ---
+# --- Display metrics ---
 st.markdown("---")
-st.subheader("📈 Berechnungen")
+st.subheader("📈 Deine Berechnungen")
 st.write(f"Trainingskalorien: {int(cal_burn)} kcal")
 st.write(f"Flüssigkeitsbedarf: {fluid_loss:.2f} L")
 
-# --- Snack Recommendation ---
+# --- Snack recommendation ---
 st.markdown("---")
 st.subheader("🍌 Snack vor Training")
 pre_cal = cal_burn * 0.3
