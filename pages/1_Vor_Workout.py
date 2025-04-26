@@ -106,6 +106,7 @@ else:
     duration = st.slider("Dauer (Min)", 15, 300, 60)
     distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
 
+# synchronize
 dauer = duration
 
 # --- Select intensity ---
@@ -165,7 +166,7 @@ fl_m = 0.7 / 60
 plot_df = pd.DataFrame({'Minute': mins, 'Kcal': [cal_m*m for m in mins], 'Flüssigkeit': [fl_m*m for m in mins]}).set_index('Minute')
 st.line_chart(plot_df)
 coords = []
-for tr in gpxpy.parse(r.text).tracks:
+for tr in gpxpy.parse(resp.text).tracks:
     for seg in tr.segments:
         for pt in seg.points:
             coords.append({'lat': pt.latitude, 'lon': pt.longitude})
