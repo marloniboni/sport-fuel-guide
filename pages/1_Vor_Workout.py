@@ -131,28 +131,32 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack-Optionen passend zu Intake-Kalorien ---
+# --- Snack-Optionen mit Servierberechnung ---
 st.markdown("---")
-st.subheader("🍪 Snacks mit exakter Kalorienzahl für jede Intake-Einheit")
+st.subheader("🍪 Snack-Optionen & benötigte Menge pro Intake")
 # benötigte Kalorien pro Intake-Ereignis
-required_cal = int(cal_tot/(dauer/eat_i))
-st.write(f"Benötigte Kalorien pro Snack: **{required_cal} kcal**")
-# Suche nach passenden Snacks
-query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
+required_cal = cal_tot/(dauer/eat_i)
+st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
+# Suchen nach Snacks
+eat_query = st.text_input("Suchbegriff für Snacks", "sports nutrition")
 limit = st.slider("Anzahl Ergebnisse", 5, 50, 20)
 try:
-    snacks = search_snacks(query=query, limit=limit)
-    matches = []
-    for item in snacks:
-        nut = fetch_nutrition(item['food_name'])
-        if nut and int(nut['nf_calories']) == required_cal:
-            matches.append((item['food_name'], item.get('brand_name',''), nut))
-    if not matches:
-        st.write("Keine Snacks gefunden, die genau diesen Kalorienwert haben.")
+    snacks = search_snacks(query=eat_query, limit=limit)
+    if not snacks:
+        st.write(f"Keine Snacks gefunden für '{eat_query}'.")
     else:
-        for name, brand, nut in matches:
-            serving = f"{nut['serving_qty']} {nut['serving_unit']}"
-            st.write(f"- **{name}** ({brand}): {required_cal} kcal · {serving}")
+        for item in snacks:
+            name = item['food_name']
+            brand = item.get('brand_name','Unbekannt')
+            nut = fetch_nutrition(name)
+            if not nut or not nut.get('nf_calories'):
+                continue
+            snack_cal = nut['nf_calories']
+            servings = required_cal / snack_cal
+            # Round to sensible fraction
+            servings_text = f"{servings:.1f} Portion(en)"
+            serving_info = f"{nut['serving_qty']} {nut['serving_unit']}"
+            st.write(f"- **{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
 except requests.HTTPError:
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
