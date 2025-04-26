@@ -54,31 +54,47 @@ def parse_gpx(gpx_text):
     return duration / 60, dist
 
 # --- Input: GPX link or file ---
-st.markdown("### GPX-Link oder Datei eingeben")
-route_url = st.text_input("Füge hier einen Komoot/Strava-Tour-Link ein:")
+st.markdown("### GPX-Link, HTML-Snippet oder Datei eingeben")
+route_input = st.text_area("Füge hier Komoot/Strava-Link, iframe oder Anchor-Tag ein:")
 uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
 
 duration, distanz = None, None
-if route_url:
+if route_input:
+    # Try extract URL from HTML snippet
+    href = None
+    if '<' in route_input and '>' in route_input:
+        # first look for src in iframe
+        m = re.search(r'src=["\']([^"\']+)["\']', route_input)
+        if m:
+            href = m.group(1)
+        else:
+            # fallback to href
+            m = re.search(r'href=["\']([^"\']+)["\']', route_input)
+            if m:
+                href = m.group(1)
+    url = href or route_input.strip()
     try:
-        resp = requests.get(route_url)
-        # If Komoot embed or tour URL ends with .gpx, download directly
-        if 'komoot.com' in route_url and not route_url.endswith('.gpx'):
-            # Try embed -> construct .gpx link
-            id_match = re.search(r"/tour/(\d+)", route_url)
-            token_match = re.search(r"share_token=([^&]+)", route_url)
+        # Direct GPX URL or webpage URL
+        resp = requests.get(url)
+        resp.raise_for_status()
+        # If URL points to a page, try detect Komoot tour id
+        if 'komoot.com' in url and not url.endswith('.gpx'):
+            id_match = re.search(r"/tour/(\d+)", url)
+            token_match = re.search(r"share_token=([^&]+)", url)
             if id_match:
                 tour_id = id_match.group(1)
                 token = token_match.group(1) if token_match else None
-                base = f"https://www.komoot.com/tour/{tour_id}.gpx"
-                download_url = base + (f"?share_token={token}" if token else "")
-                resp = requests.get(download_url)
-        resp.raise_for_status()
+                # Komoot API endpoint
+                api_url = f"https://www.komoot.com/api/v007/tours/{tour_id}.gpx"
+                if token:
+                    api_url += f"?share_token={token}"
+                resp = requests.get(api_url)
+                resp.raise_for_status()
         duration, distanz = parse_gpx(resp.text)
         st.success(f"GPX geladen: {duration:.0f} min, {distanz:.2f} km")
     except requests.HTTPError as e:
         if e.response.status_code == 403:
-            st.error("Komoot blockiert den direkten Download. Bitte exportiere die GPX-Datei manuell unter 'Teilen → Export GPX' und lade sie hier hoch.")
+            st.error("Komoot blockiert den Download. Bitte exportiere manuell und lade hoch.")
         else:
             st.error(f"Fehler beim Laden/Parsen der GPX-URL: {e}")
         st.stop()
@@ -86,7 +102,7 @@ elif uploaded_file:
     try:
         txt = uploaded_file.read().decode("utf-8")
         duration, distanz = parse_gpx(txt)
-        st.success(f"Datei geladen: {duration:.0f} min, {distanz:.2f} km")
+        st.success(f"GPX-Datei geladen: {duration:.0f} min, {distanz:.2f} km")
     except Exception as e:
         st.error(f"Fehler beim Parsen der Datei: {e}")
         st.stop()
@@ -95,6 +111,7 @@ else:
     duration = st.slider("Dauer (Min)", 15, 300, 60)
     distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
 
+# synchronize variable
 dauer = duration
 
 # --- Select intensity ---
@@ -110,9 +127,6 @@ factors = {
 cal_per_hr = factors[sportart][intensity] * gewicht
 cal_burn = cal_per_hr * (dauer / 60)
 fluid_loss = 0.7 * (dauer / 60)
-
-total_cal = grundumsatz + cal_burn
-total_fluid = fluessigkeit_tag + fluid_loss
 
 # --- Display metrics ---
 st.markdown("---")
