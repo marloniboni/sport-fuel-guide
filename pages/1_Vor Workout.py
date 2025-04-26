@@ -1,7 +1,7 @@
-streamlit>=1.0.0
-pandas>=1.5.0
-gpxpy>=1.6.0
-requests>=2.28.0
+git add requirements.txt
+git commit -m "Add requirements.txt for Streamlit app dependencies"
+git push origin main
+
 
 import streamlit as st
 import pandas as pd
