@@ -43,7 +43,7 @@ def fetch_image(query: str):
         return items[0].get('photo', {}).get('thumb')
     return None
 
-# --- App Title & User Data Check ---
+# --- App Title & Data Check ---
 st.title("⚡ Vor-Workout Planung")
 if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
@@ -69,7 +69,7 @@ if mode=="GPX-Datei":
 else:
     dauer = st.slider("Dauer (Min)",15,300,60)
     distanz = st.number_input("Distanz (km)",0.0,100.0,10.0)
-    coords=[]
+    coords = []
 st.write(f"Dauer: {dauer:.0f} Min, Distanz: {distanz:.2f} km")
 
 # --- Compute Metrics ---
@@ -96,7 +96,7 @@ st.markdown("---")
 st.subheader("⏰ Intake-Plan: Essen & Trinken")
 st.table(df_sched)
 
-# --- Snack Vorschläge ---
+# --- Snack Suggestions ---
 st.markdown("---")
 st.subheader("🍪 Snack-Vorschläge")
 required_cal = cal_burn/(dauer/eat_i)
@@ -141,14 +141,11 @@ for q in queries:
         if img_url: col1.image(img_url, width=80)
         col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
         dfm = df_macro.copy()
-        # close the loop by repeating first row at end for radar
+        # close the loop for radar
         dfm_closed = pd.concat([dfm, dfm.iloc[[0]]], ignore_index=True)
-        # determine max for consistent scale
         max_val = dfm['Gramm'].max()
-        # Debug display closed DF
-        col2.write("DFM for radar:")
         col2.write(dfm_closed)
-                area1 = (
+        area1 = (
             alt.Chart(dfm_closed)
                .mark_area(interpolate='linear', opacity=0.3)
                .encode(
@@ -156,20 +153,17 @@ for q in queries:
                    radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
                    color=alt.Color('Makronährstoff:N', legend=None)
                )
-        ).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
-            radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-            color=alt.Color('Makronährstoff:N', legend=None)
-        )(dfm).mark_area(interpolate='linear', opacity=0.3).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=dfm['Makronährstoff'].tolist()),
-            radius=alt.Radius('Gramm:Q', scale=alt.Scale(zero=True)),
-            color=alt.Color('Makronährstoff:N', legend=None)
         )
-        line1 = alt.Chart(dfm).mark_line(point=True).encode(
-            theta=alt.Theta('Makronährstoff:N', sort=dfm['Makronährstoff'].tolist()),
-            radius=alt.Radius('Gramm:Q', scale=alt.Scale(zero=True)),
-            color=alt.Color('Makronährstoff:N', legend=None),
-            tooltip=['Makronährstoff','Gramm']
-        ).interactive()
+        line1 = (
+            alt.Chart(dfm_closed)
+               .mark_line(point=True)
+               .encode(
+                   theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
+                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
+                   color=alt.Color('Makronährstoff:N', legend=None),
+                   tooltip=['Makronährstoff','Gramm']
+               )
+               .interactive()
+        )
         spider1 = alt.layer(area1, line1).properties(width=200, height=200, title='Makronährstoffe')
         col2.altair_chart(spider1, use_container_width=False)
