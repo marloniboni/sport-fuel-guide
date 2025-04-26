@@ -148,7 +148,7 @@ for q in queries:
         # Display grams needed under chart
         col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
         # Build radar chart properly indented
-                # Build the interactive radar (Smart-Spider) chart
+                        # Build the interactive radar (Smart-Spider) chart
         radar = (
             alt.Chart(dfm)
                .mark_area(interpolate='linear', opacity=0.5)
@@ -161,7 +161,7 @@ for q in queries:
                .properties(width=150, height=150)
                .interactive()
         )
-        col2.altair_chart(radar, use_container_width=False)
+        col2.altair_chart(radar, use_container_width=False)(radar, use_container_width=False)
 
 # --- Kumulative Charts ---
 mins=list(range(int(dauer)+1))
