@@ -138,11 +138,20 @@ for q in queries:
         if img_url:
             col1.image(img_url,width=80)
         col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
-        dfm=pd.DataFrame({'Makronährstoff':['Fett','Protein','Kohlenhydrate'],'Gramm':[fat,prot,carb]})
-        radar=alt.Chart(dfm).mark_area(interpolate='linear',opacity=0.5).encode(
-            theta=alt.Theta('Makronährstoff:N',sort=['Fett','Protein','Kohlenhydrate']),
-            radius=alt.Radius('Gramm:Q'),color='Makronährstoff:N',tooltip=['Makronährstoff','Gramm']
-        ).properties(width=150,height=150).interactive()
+        # Prepare data including sugar if available
+        sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or 0
+        sugar = sugar100 * grams/100
+        dfm = pd.DataFrame({
+            'Makronährstoff': ['Fett','Protein','Kohlenhydrate','Zucker'],
+            'Gramm': [fat, prot, carb, sugar]
+        })
+        # Display grams needed under chart
+        col1.markdown(f"Benötigte Menge: **{grams:.0f} g**")
+        radar = alt.Chart(dfm).mark_area(interpolate='linear', opacity=0.5).encode(
+            theta=alt.Theta('Makronährstoff:N', sort=['Fett','Protein','Kohlenhydrate','Zucker']),
+            radius=alt.Radius('Gramm:Q', scale=alt.Scale(type='linear', zero=True)),
+            color='Makronährstoff:N', tooltip=['Makronährstoff','Gramm:Q'])
+            .properties(width=150, height=150).interactive()
         col2.altair_chart(radar,use_container_width=False)
 
 # --- Kumulative Charts ---
