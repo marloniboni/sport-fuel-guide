@@ -148,7 +148,15 @@ for q in queries:
         # Debug display closed DF
         col2.write("DFM for radar:")
         col2.write(dfm_closed)
-        area1 = alt.Chart(dfm_closed).mark_area(interpolate='linear', opacity=0.3).encode(
+                area1 = (
+            alt.Chart(dfm_closed)
+               .mark_area(interpolate='linear', opacity=0.3)
+               .encode(
+                   theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
+                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
+                   color=alt.Color('Makronährstoff:N', legend=None)
+               )
+        ).encode(
             theta=alt.Theta('Makronährstoff:N', sort=['Ballaststoffe','Zucker','Protein']),
             radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
             color=alt.Color('Makronährstoff:N', legend=None)
