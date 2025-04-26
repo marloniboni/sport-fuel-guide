@@ -102,12 +102,18 @@ st.table(df_sched)
 # --- Snack options from API ---
 st.markdown("---")
 st.subheader("🏷️ Snack-Optionen & Kauflinks")
-opts = fetch_snack_options()
-for item in opts:
-    name = item['food_name']
-    cal = item['nf_calories']
-    link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
-    st.write(f"- [{name}]({link}): {cal} kcal | Portion: {item['serving_qty']} {item['serving_unit']}")
+try:
+    opts = fetch_snack_options()
+    if not opts:
+        st.write("Keine Snack-Optionen gefunden.")
+    else:
+        for item in opts:
+            name = item['food_name']
+            cal = item['nf_calories']
+            link = f"https://www.amazon.de/s?k={urllib.parse.quote(name)}"
+            st.write(f"- [{name}]({link}): {cal} kcal | Portion: {item['serving_qty']} {item['serving_unit']}")
+except requests.HTTPError:
+    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
 # --- Build time series for cumulative charts ---
 mins = list(range(0, int(dauer)+1))
