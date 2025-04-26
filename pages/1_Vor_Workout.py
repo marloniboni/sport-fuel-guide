@@ -13,21 +13,12 @@ API_URL = "https://trackapi.nutritionix.com/v2/natural/nutrients"
 
 @st.cache_data
 def fetch_nutrition(product_name):
-    headers = {
-        'x-app-id': APP_ID,
-        'x-app-key': APP_KEY,
-        'Content-Type': 'application/json'
-    }
+    headers = {'x-app-id': APP_ID, 'x-app-key': APP_KEY, 'Content-Type': 'application/json'}
     data = {'query': product_name}
     r = requests.post(API_URL, headers=headers, json=data)
     r.raise_for_status()
     first = r.json().get('foods', [])[0]
-    return {
-        'name': first['food_name'],
-        'calories': first['nf_calories'],
-        'serving_qty': first['serving_qty'],
-        'serving_unit': first['serving_unit']
-    }
+    return {'name': first['food_name'], 'calories': first['nf_calories'], 'serving_qty': first['serving_qty'], 'serving_unit': first['serving_unit']}
 
 CANDIDATE_SNACKS = ['Clif Bar', 'Honey Stinger Gel', 'Gatorade']
 @st.cache_data
@@ -65,14 +56,15 @@ uploaded_file = st.file_uploader("Oder lade eine GPX-Datei hoch", type="gpx")
 
 if route_url:
     try:
-        # Handle Komoot embed links
-        if "komoot.com" in route_url and "/embed" in route_url:
+        # Handle Komoot embed links by constructing .gpx endpoint
+        if "komoot.com" in route_url and "/tour/" in route_url:
             id_match = re.search(r"/tour/(\d+)", route_url)
             token_match = re.search(r"share_token=([^&]+)", route_url)
             if id_match and token_match:
                 tour_id = id_match.group(1)
                 token = token_match.group(1)
-                download_url = f"https://www.komoot.com/tour/{tour_id}/download.gpx?share_token={token}"
+                # Use .gpx endpoint instead of download path
+                download_url = f"https://www.komoot.com/tour/{tour_id}.gpx?share_token={token}"
                 resp = requests.get(download_url)
             else:
                 resp = requests.get(route_url)
