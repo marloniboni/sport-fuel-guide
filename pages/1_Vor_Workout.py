@@ -160,13 +160,53 @@ pre_cal = cal_burn * 0.3
 sn = recommend_snack(pre_cal)
 st.write(f"{sn['name']}: {sn['serving_qty']} {sn['serving_unit']} (~{int(sn['calories'])} kcal)")
 
-# --- Chart ---
+# --- Chart und Timeline ---
 st.markdown("---")
-st.subheader("📊 Verlauf während Training")
+st.subheader("📊 Verlauf während Training und Intake-Marker")
+# Erzeuge Zeitreihe
 mins = list(range(0, int(dauer)+1))
 cal_min = cal_per_hr/60
 fluid_min = 0.7/60
-cf_df = pd.DataFrame({'Minute': mins, 'Kalorien': [cal_min*m for m in mins], 'Flüssigkeit': [fluid_min*m for m in mins]}).set_index('Minute')
-st.line_chart(cf_df)
+timeline = []
+for m in mins:
+    timeline.append({
+        'Minute': m,
+        'Kalorien kumulativ': cal_min*m,
+        'Flüssigkeit kumulativ': fluid_min*m,
+        'Intake': m in intake_df.index
+    })
+tl_df = pd.DataFrame(timeline)
+# Zeichne mit Altair (Charts müssen in requirements: altair, vega_datasets)
+import altair as alt
+cal_line = alt.Chart(tl_df).mark_line().encode(
+    x='Minute',
+    y='Kalorien kumulativ',
+    tooltip=['Minute','Kalorien kumulativ']
+)
+fluid_line = alt.Chart(tl_df).mark_line(strokeDash=[5,5]).encode(
+    x='Minute',
+    y='Flüssigkeit kumulativ',
+    tooltip=['Minute','Flüssigkeit kumulativ']
+)
+intake_points = alt.Chart(tl_df[tl_df['Intake']]).mark_point(size=100, color='red').encode(
+    x='Minute',
+    y='Kalorien kumulativ',
+    tooltip=['Minute']
+)
+chart = (cal_line + fluid_line + intake_points).properties(width=700, height=300)
+st.altair_chart(chart, use_container_width=True)
 
-st.info("Kalorien- und Flüssigkeitsverlauf")
+# --- Map der Route ---
+st.markdown("---")
+st.subheader("🗺️ Kartenansicht der Route")
+# Trackpunkte extrahieren
+coords = []
+for track in gpxpy.parse(resp.text).tracks:
+    for segment in track.segments:
+        for pt in segment.points:
+            coords.append({'lat': pt.latitude, 'lon': pt.longitude})
+if coords:
+    track_df = pd.DataFrame(coords)
+    st.map(track_df)
+
+st.info("Timeline zeigt Intake-Momente (rot) zusammen mit Kcal- und Flüssigkeitsverlauf.")
