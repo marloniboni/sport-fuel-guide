@@ -153,11 +153,32 @@ try:
                 continue
             snack_cal = nut['nf_calories']
             servings = required_cal / snack_cal
-            # Round to sensible fraction
             servings_text = f"{servings:.1f} Portion(en)"
             serving_info = f"{nut['serving_qty']} {nut['serving_unit']}"
-            st.write(f"- **{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
+            # Fetch macro breakdown
+            try:
+                macros = fetch_food_macros(name)
+            except Exception:
+                macros = {}
+            fat = macros.get('fat', 0)
+            protein = macros.get('protein', 0)
+            carbs = macros.get('carbs', 0)
+            # Display text summary
+            st.write(f"**{name}** ({brand}): {snack_cal} kcal/Portion · {servings_text} ({serving_info})")
+            # Visual macro distribution
+            df_macro = pd.DataFrame({
+                'Makronährstoff': ['Fett', 'Protein', 'Kohlenhydrate'],
+                'Gramm': [fat, protein, carbs]
+            })
+            chart = alt.Chart(df_macro).mark_bar().encode(
+                x='Makronährstoff',
+                y='Gramm',
+                tooltip=['Makronährstoff', 'Gramm']
+            ).properties(width=300, height=150)
+            st.altair_chart(chart, use_container_width=False)
+    
 except requests.HTTPError:
+    st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
     st.warning("Snack-Optionen konnten nicht geladen werden. Bitte später erneut versuchen.")
 
 # --- Build time series for cumulative charts ---
