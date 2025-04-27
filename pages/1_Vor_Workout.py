@@ -179,24 +179,6 @@ for food in foods:
     )
     with col_chart:
         st.altair_chart(bar, use_container_width=True)
-    grams    = req_cal * 100 / cal100 if cal100 else 0
-    # display image and grams
-    img  = fetch_image(desc)
-    col_img, col_chart = st.columns([1,2])
-    with col_img:
-        if img: st.image(img, width=80)
-        st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
-    df_sp = pd.DataFrame({'Macro':['Fat','Protein','Carb','Sugar'],
-                          'g':[fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]})
-    df2    = pd.concat([df_sp, df_sp.iloc[[0]]], ignore_index=True)
-    maxv   = df_sp['g'].max()
-    # bar chart
-    bar = (alt.Chart(df_sp)
-           .mark_bar()
-           .encode(x='Macro:N',y='g:Q',color='Macro:N',tooltip=['Macro','g'])
-           .properties(width=300,height=200))
-    with col_chart:
-        st.altair_chart(bar, use_container_width=True)
 
 # --- Dual Charts: Verbrauch vs Intake ---
 st.subheader("⏲️ Verlauf Verbrauch & Intake")
