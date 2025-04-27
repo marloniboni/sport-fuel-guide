@@ -196,7 +196,7 @@ if coords:
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
         lat, lon = coords[idx]
-        c = 'red' if t%eat_interval==0 else 'blue'
+        c = 'red' if t%eat_interval==0 else 'yellow'
         folium.CircleMarker((lat,lon), radius=5, color=c, fill=True).add_to(m)
     st_folium(m, width=700, height=400)
     xml = gpx_obj.to_xml()
