@@ -195,14 +195,17 @@ for food in foods:
 st.subheader("⏲️ Verlauf Verbrauch & Intake")
 mins = list(range(int(dauer)+1))
 calv = [cal_burn/dauer*m for m in mins]
-cali = [req_cal if m in events else 0 for m in mins]
+grams = req_cal * 100 / cal100  # wie oben schon berechnet
+gram_series = [grams if m in events else 0 for m in mins]
 fluv = [fluid_loss/dauer*m for m in mins]
 flui = [fluid_loss/len(events) if m in events else 0 for m in mins]
 col1, col2 = st.columns(2)
 chart_cal = alt.layer(
-    alt.Chart(pd.DataFrame({'Minute':mins,'verbrannt':calv})).mark_line().encode(x='Minute',y='verbrannt'),
-    alt.Chart(pd.DataFrame({'Minute':mins,'intake':cali})).mark_bar(opacity=0.5).encode(x='Minute',y='intake')
-).properties(width=350,height=300)
+    alt.Chart(pd.DataFrame({'Minute': mins, 'verbrannt': calv}))
+       .mark_line().encode(x='Minute', y='verbrannt'),
+    alt.Chart(pd.DataFrame({'Minute': mins, 'portion_g': gram_series}))
+       .mark_bar(opacity=0.5).encode(x='Minute', y='portion_g')
+)
 col1.altair_chart(chart_cal, use_container_width=True)
 chart_flu = alt.layer(
     alt.Chart(pd.DataFrame({'Minute':mins,'verloren':fluv})).mark_line().encode(x='Minute',y='verloren'),
