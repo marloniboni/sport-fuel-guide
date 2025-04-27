@@ -29,27 +29,17 @@ def parse_gpx(text: str):
     return duration/60, dist, coords, g
 
 # --- GPX Input ---
-route_input = st.text_area("GPX-Link oder HTML-Snippet:")
-uploaded_file = st.file_uploader("Oder GPX-Datei hochladen", type="gpx")
-if route_input:
-    m = re.search(r'src=["\']([^"\']+)["\']', route_input)
-    url = m.group(1) if m else route_input.strip()
-    try:
-        resp = requests.get(url)
-        resp.raise_for_status()
-        duration, distanz, coords, gpx_obj = parse_gpx(resp.text)
-    except:
-        st.error("Fehler beim Laden der GPX-Route.")
+mode = st.radio("Datenquelle", ["GPX-Datei","Manuelle Eingabe"])
+if mode=="GPX-Datei":
+    up = st.file_uploader("GPX-Datei hochladen", type='gpx')
+    if up:
+        dauer, distanz, coords, gpx_obj = parse_gpx(up.read().decode())
+    else:
         st.stop()
-elif uploaded_file:
-    text = uploaded_file.read().decode()
-    duration, distanz, coords, gpx_obj = parse_gpx(text)
 else:
-    duration = st.slider("Dauer (Min)",15,300,60)
+    dauer = st.slider("Dauer (Min)",15,300,60)
     distanz = st.number_input("Distanz (km)",0.0,100.0,10.0)
     coords = []
-
-dauer = duration
 st.write(f"Dauer: {dauer:.0f} Min, Distanz: {distanz:.2f} km")
 
 # --- Compute metrics ---
