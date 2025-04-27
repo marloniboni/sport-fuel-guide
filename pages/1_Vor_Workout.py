@@ -165,10 +165,11 @@ for food in foods:
         if img: st.image(img, width=80)
         # Produktname, benötigte Gramm und originale Portionsgröße
         if serving_size:
-            st.write(f"**{desc}**
-Portionsgröße: {serving_size} {serving_unit}
-Benötigt: **{grams:.0f} g** für **{req_cal:.0f} kcal**")
-        else:
+    st.write(f"**{desc}**")
+    st.write(f"Portionsgröße: {serving_size} {serving_unit}")
+    st.write(f"Benötigt: **{grams:.0f} g** für **{req_cal:.0f} kcal**")
+else:
+    st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
             st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
         if img: st.image(img, width=80)
         st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
