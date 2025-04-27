@@ -155,7 +155,7 @@ for food in foods:
     # Berechne Gramm exakt für req_cal
     grams    = req_cal * 100 / cal100 if cal100 else 0
 
-        # Anzeige
+    # Anzeige
     # original serving size from API (wenn vorhanden)
     serving_size = details.get('servingSize') or nut.get('serving_size') or None
     serving_unit = details.get('servingSizeUnit') or ''
