@@ -111,7 +111,10 @@ def get_food_details(fdc_id: int):
     resp.raise_for_status()
     return resp.json()
 
-# Nutritionix for images
+# Berechne Kalorien pro Snack-Ereignis einmalig
+req_cal = cal_burn / len(events) if events else 0
+
+# Nutritionix für Bilder
 NX_APP_ID  = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
 NX_APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
 @st.cache_data
@@ -129,18 +132,18 @@ if not snack_query:
     st.info("Bitte ein Schlagwort eingeben, um Snacks aus der USDA-Datenbank zu finden.")
 
 foods = search_foods(snack_query, limit=5)
+# Loop durch die Snacks
 for food in foods:
     desc = food.get('description')
     fdc  = food.get('fdcId')
-    # nutrient details
+    # Nährstoffe holen
     details = get_food_details(fdc)
     nut = {}
     for n in details.get('foodNutrients', []):
         if 'nutrient' in n and isinstance(n['nutrient'], dict):
-            key = n['nutrient'].get('name')
-            val = n.get('amount', 0)
+            key = n['nutrient'].get('name'); val = n.get('amount',0)
         elif 'nutrientName' in n:
-            key = n['nutrientName']; val = n.get('value',0)
+            key = n['nutrientName'];       val = n.get('value',0)
         else:
             continue
         nut[key] = val or 0
@@ -149,7 +152,33 @@ for food in foods:
     prot100  = nut.get('Protein',0)
     carb100  = nut.get('Carbohydrate, by difference',0)
     sugar100 = nut.get('Sugars, total including NLEA') or nut.get('Sugars',0)
-    req_cal  = cal_burn / len(events)
+    # Berechne Gramm exakt für req_cal
+    grams    = req_cal * 100 / cal100 if cal100 else 0
+
+    # Anzeige
+    img  = fetch_image(desc)
+    col_img, col_chart = st.columns([1,2])
+    with col_img:
+        if img: st.image(img, width=80)
+        st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
+
+    # Balkendiagramm Makros
+    df_sp = pd.DataFrame({
+        'Macro': ['Fat','Protein','Carb','Sugar'],
+        'g':     [fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]
+    })
+    maxv = df_sp['g'].max()
+    bar = (
+        alt.Chart(df_sp)
+           .mark_bar()
+           .encode(
+               x='Macro:N', y='g:Q',
+               color='Macro:N', tooltip=['Macro','g']
+           )
+           .properties(width=300, height=200)
+    )
+    with col_chart:
+        st.altair_chart(bar, use_container_width=True)
     grams    = req_cal * 100 / cal100 if cal100 else 0
     # display image and grams
     img  = fetch_image(desc)
