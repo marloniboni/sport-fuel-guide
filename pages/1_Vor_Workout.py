@@ -126,7 +126,11 @@ def fetch_image(item: str):
     return b[0]['photo']['thumb'] if b else None
 
 st.subheader("🍌 Snack-Empfehlungen (USDA + Bilder)")
-snack_query = st.text_input("Snack suchen", "Banana")
+snack_query = st.text_input("Snack suchen (Schlagwort)", "")
+if not snack_query:
+    st.info("Bitte ein Schlagwort eingeben, um Snacks aus der USDA-Datenbank zu finden.")
+
+foods = search_foods(snack_query or " ", limit=5)
 foods = search_foods(snack_query, limit=3)
 for food in foods:
     desc = food.get('description')
