@@ -151,7 +151,9 @@ for food in foods:
     fat100   = nut.get('Total lipid (fat)',0)
     prot100  = nut.get('Protein',0)
     carb100  = nut.get('Carbohydrate, by difference',0)
-    sugar100 = nut.get('Sugars, total including NLEA') or nut.get('Sugars',0)
+    # Sugar-Keys können variieren, also alle sugar-ähnlichen Keys aufsummieren
+    sugar100 = sum(v for k,v in nut.items() if 'sugar' in k.lower())
+
     # Berechne Gramm exakt für req_cal
     grams    = req_cal * 100 / cal100 if cal100 else 0
 
