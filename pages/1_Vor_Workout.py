@@ -93,7 +93,18 @@ for food in foods:
     fdc_id = food.get('fdcId')
     details = get_food_details(fdc_id)
     # extrahiere Makros
-    nut = {n['nutrient']['name']: n['amount'] for n in details.get('foodNutrients', []) if 'nutrient' in n}
+    nut = {}
+    for n in details.get('foodNutrients', []):
+        # handle both new and legacy formats
+        if 'nutrient' in n and isinstance(n['nutrient'], dict) and 'name' in n['nutrient']:
+            key = n['nutrient']['name']
+            val = n.get('amount', 0)
+        elif 'nutrientName' in n:
+            key = n['nutrientName']
+            val = n.get('value', 0)
+        else:
+            continue
+        nut[key] = val or 0
     cal100   = nut.get('Energy') or nut.get('Calories') or 0
     fat100   = nut.get('Total lipid (fat)') or 0
     prot100  = nut.get('Protein') or 0
