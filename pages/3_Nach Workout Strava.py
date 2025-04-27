@@ -5,7 +5,7 @@ import urllib
 # --- Strava API Credentials ---
 CLIENT_ID = "157336"
 CLIENT_SECRET = "91427e877cc7921d28692d6a57312a5edcd12325"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"  # Wichtig: Hauptseite!
+REDIRECT_URI = "ttps://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/Nach_Workout_Strava"  # Wichtig
 
 # --- Schritt 1: Nutzer zu Strava weiterleiten ---
 def get_strava_authorization_url():
