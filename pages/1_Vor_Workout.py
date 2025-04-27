@@ -156,9 +156,20 @@ for food in foods:
     grams    = req_cal * 100 / cal100 if cal100 else 0
 
     # Anzeige
+    # original serving size from API (wenn vorhanden)
+    serving_size = details.get('servingSize') or nut.get('serving_size') or None
+    serving_unit = details.get('servingSizeUnit') or ''
     img  = fetch_image(desc)
     col_img, col_chart = st.columns([1,2])
     with col_img:
+        if img: st.image(img, width=80)
+        # Produktname, benötigte Gramm und originale Portionsgröße
+        if serving_size:
+            st.write(f"**{desc}**
+Portionsgröße: {serving_size} {serving_unit}
+Benötigt: **{grams:.0f} g** für **{req_cal:.0f} kcal**")
+        else:
+            st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
         if img: st.image(img, width=80)
         st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
 
