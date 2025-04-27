@@ -136,7 +136,7 @@ for food in foods:
         radius=alt.Radius('g:Q', scale=alt.Scale(domain=[0,max_val])),
         tooltip=['Makro','g']
     ).interactive()
-    st.altair_chart(area+line, use_container_width=False)")
+    st.altair_chart(area+line, use_container_width=False))
 
 # --- Chart Kalorien & Flüssigkeit ---
 st.markdown("---")
