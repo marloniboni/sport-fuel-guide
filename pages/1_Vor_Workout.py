@@ -113,18 +113,5 @@ st.write(f"**{pre['name']}**: {pre['serving']} {pre['unit']} (~{pre['cal']} kcal
 st.markdown("---")
 st.subheader("📊 Verlauf Kalorien & Flüssigkeit")
 mins=list(range(int(dauer)+1))
-cal_series=[cal_burn/dauer*m for m in mins]lu_series=[fluid_loss/dauer*m for m in mins]
-c_df=pd.DataFrame({'Minute':mins,'Kalorien':cal_series,'Flüssigkeit':flu_series}).set_index('Minute')
-st.line_chart(c_df)
-
-# --- Map & GPX Export ---
-st.markdown("---")
-st.subheader("🗺️ Route & Download")
-if coords:
-    m=folium.Map(location=coords[0],zoom_start=13)
-    folium.PolyLine(coords,color='blue').add_to(m)
-    st_folium(m,width=700,height=400)
-    xml=gpx_obj.to_xml()
-    st.download_button("GPX herunterladen",xml,file_name="route.gpx",mime="application/gpx+xml")
-
-st.info("Alle Funktionen wiederhergestellt.")
+cal_series = [cal_burn/dauer*m for m in mins]
+flu_series = [fluid_loss/dauer*m for m in mins]
