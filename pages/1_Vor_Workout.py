@@ -18,8 +18,6 @@ if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
 gewicht       = st.session_state.gewicht
-grundumsatz   = st.session_state.grundumsatz
-fluessigkeit_tag = st.session_state.fluessigkeit
 sportart      = st.selectbox("Sportart", ["Laufen","Radfahren","Schwimmen","Triathlon"])
 
 # --- GPX Parsing Helper ---
@@ -130,17 +128,10 @@ snack_query = st.text_input("Snack suchen (Schlagwort)", "")
 if not snack_query:
     st.info("Bitte ein Schlagwort eingeben, um Snacks aus der USDA-Datenbank zu finden.")
 
-foods = search_foods(snack_query or " ", limit=5)
-foods = search_foods(snack_query, limit=3)
+foods = search_foods(snack_query, limit=5)
 for food in foods:
     desc = food.get('description')
     fdc  = food.get('fdcId')
-    img  = fetch_image(desc)
-    # two columns: image+desc on left, chart on right
-    col_img, col_chart = st.columns([1,2])
-    with col_img:
-        if img: st.image(img, width=100)
-        st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
     # nutrient details
     details = get_food_details(fdc)
     nut = {}
@@ -160,20 +151,21 @@ for food in foods:
     sugar100 = nut.get('Sugars, total including NLEA') or nut.get('Sugars',0)
     req_cal  = cal_burn / len(events)
     grams    = req_cal * 100 / cal100 if cal100 else 0
-    vals = [fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]
-    df_sp = pd.DataFrame({'Macro':['Fat','Protein','Carb','Sugar'],'g':vals})
-    # bar chart instead of spider
-    bar = (
-        alt.Chart(df_sp)
+    # display image and grams
+    img  = fetch_image(desc)
+    col_img, col_chart = st.columns([1,2])
+    with col_img:
+        if img: st.image(img, width=80)
+        st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
+    df_sp = pd.DataFrame({'Macro':['Fat','Protein','Carb','Sugar'],
+                          'g':[fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]})
+    df2    = pd.concat([df_sp, df_sp.iloc[[0]]], ignore_index=True)
+    maxv   = df_sp['g'].max()
+    # bar chart
+    bar = (alt.Chart(df_sp)
            .mark_bar()
-           .encode(
-               x=alt.X('Macro:N', title='Makronährstoff'),
-               y=alt.Y('g:Q', title='g pro Portion'),
-               color=alt.Color('Macro:N', legend=None),
-               tooltip=['Macro','g']
-           )
-           .properties(width=300, height=200)
-    )
+           .encode(x='Macro:N',y='g:Q',color='Macro:N',tooltip=['Macro','g'])
+           .properties(width=300,height=200))
     with col_chart:
         st.altair_chart(bar, use_container_width=True)
 
@@ -210,3 +202,4 @@ if coords:
     xml = gpx_obj.to_xml()
     st.download_button("GPX herunterladen", xml, file_name="route_intake.gpx", mime="application/gpx+xml")
 
+st.info("Alle Funktionen aktiv – USDA FDC API-Key verwendet.")
