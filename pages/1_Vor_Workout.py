@@ -162,6 +162,24 @@ for food in foods:
     line = alt.Chart(df2).mark_line(point=True).encode(
         theta=alt.Theta('Macro:N'), radius=alt.Radius('g:Q', scale=alt.Scale(domain=[0,maxv])), tooltip=['Macro','g']).interactive()
     st.altair_chart(area+line, use_container_width=False)
+# --- Alternative Makro-Darstellung als gruppierte Balken ---
+st.markdown("---")
+st.subheader("📊 Makro-Verteilung (Balken)")
+
+# df_sp enthält ja schon ['Macro','g']
+# wir erzeugen einen einfachen Balken-Chart
+bar = (
+    alt.Chart(df_sp)
+       .mark_bar()
+       .encode(
+           x=alt.X("Macro:N", title="Makronährstoff"),
+           y=alt.Y("g:Q", title="Gramm pro Portion"),
+           color=alt.Color("Macro:N", legend=None),
+           tooltip=["Macro","g"]
+       )
+       .properties(width=400, height=300)
+)
+st.altair_chart(bar, use_container_width=False)
 
 # --- Dual Charts: Verbrauch vs Intake ---
 st.subheader("⏲️ Verlauf Verbrauch & Intake")
