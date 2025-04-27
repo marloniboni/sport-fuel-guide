@@ -66,7 +66,20 @@ st.subheader("⏰ Intake-Plan")
 st.table(df_sched)
 
 # --- USDA FDC Snack API statt Nutritionix ---
-FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
+# Zusätzlich: Nutritionix für Produktbilder
+NX_APP_ID = os.getenv("NUTRITIONIX_APP_ID","9810d473")
+NX_APP_KEY = os.getenv("NUTRITIONIX_APP_KEY","f9668e402b5a79eaee8028e4aac19a04")
+
+@st.cache_data
+ def fetch_image(query: str):
+     headers = {'x-app-id': NX_APP_ID, 'x-app-key': NX_APP_KEY}
+     params = {'query': query, 'branded': 'true'}
+     r = requests.get("https://trackapi.nutritionix.com/v2/search/instant", headers=headers, params=params)
+     r.raise_for_status()
+     items = r.json().get('branded', [])
+     if items:
+         return items[0].get('photo', {}).get('thumb')
+     return None
 
 @st.cache_data
 def search_foods(query: str, limit: int = 5):
