@@ -85,7 +85,7 @@ schedule = []
 for t in events:
     row = {'Minute': t}
     if t % eat_interval == 0:
-        row['Essen (kcal)'] = int(cal_burn / (dauer/eat_interval))
+        row['Essen (kcal)'] = req_cal
     if t % drink_interval == 0:
         row['Trinken (L)'] = round(fluid_loss / (dauer/drink_interval), 2)
     schedule.append(row)
@@ -151,9 +151,7 @@ for food in foods:
     fat100   = nut.get('Total lipid (fat)',0)
     prot100  = nut.get('Protein',0)
     carb100  = nut.get('Carbohydrate, by difference',0)
-    # Sugar-Keys können variieren, also alle sugar-ähnlichen Keys aufsummieren
-    sugar100 = sum(v for k,v in nut.items() if 'sugar' in k.lower())
-
+    sugar100 = nut.get('Sugars, total including NLEA') or nut.get('Sugars',0)
     # Berechne Gramm exakt für req_cal
     grams    = req_cal * 100 / cal100 if cal100 else 0
 
@@ -195,17 +193,14 @@ for food in foods:
 st.subheader("⏲️ Verlauf Verbrauch & Intake")
 mins = list(range(int(dauer)+1))
 calv = [cal_burn/dauer*m for m in mins]
-grams = req_cal * 100 / cal100  # wie oben schon berechnet
-gram_series = [grams if m in events else 0 for m in mins]
+cali = [req_cal if m in events else 0 for m in mins]
 fluv = [fluid_loss/dauer*m for m in mins]
 flui = [fluid_loss/len(events) if m in events else 0 for m in mins]
 col1, col2 = st.columns(2)
 chart_cal = alt.layer(
-    alt.Chart(pd.DataFrame({'Minute': mins, 'verbrannt': calv}))
-       .mark_line().encode(x='Minute', y='verbrannt'),
-    alt.Chart(pd.DataFrame({'Minute': mins, 'portion_g': gram_series}))
-       .mark_bar(opacity=0.5).encode(x='Minute', y='portion_g')
-)
+    alt.Chart(pd.DataFrame({'Minute':mins,'verbrannt':calv})).mark_line().encode(x='Minute',y='verbrannt'),
+    alt.Chart(pd.DataFrame({'Minute':mins,'intake':cali})).mark_bar(opacity=0.5).encode(x='Minute',y='intake')
+).properties(width=350,height=300)
 col1.altair_chart(chart_cal, use_container_width=True)
 chart_flu = alt.layer(
     alt.Chart(pd.DataFrame({'Minute':mins,'verloren':fluv})).mark_line().encode(x='Minute',y='verloren'),
