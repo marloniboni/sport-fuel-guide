@@ -132,10 +132,13 @@ for food in foods:
     desc = food.get('description')
     fdc  = food.get('fdcId')
     img  = fetch_image(desc)
-    if img: st.image(img, width=80)
-    st.write(f"**{desc}** (FDC ID: {fdc})")
+    # two columns: image+desc on left, chart on right
+    col_img, col_chart = st.columns([1,2])
+    with col_img:
+        if img: st.image(img, width=100)
+        st.write(f"**{desc}** (FDC ID: {fdc})")
+    # nutrient details
     details = get_food_details(fdc)
-    # build nutrient dict
     nut = {}
     for n in details.get('foodNutrients', []):
         if 'nutrient' in n and isinstance(n['nutrient'], dict):
@@ -155,31 +158,20 @@ for food in foods:
     grams    = req_cal * 100 / cal100 if cal100 else 0
     vals = [fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]
     df_sp = pd.DataFrame({'Macro':['Fat','Protein','Carb','Sugar'],'g':vals})
-    df2    = pd.concat([df_sp, df_sp.iloc[[0]]], ignore_index=True)
-    maxv   = max(vals) if vals else 0
-    area = alt.Chart(df2).mark_area(opacity=0.4).encode(
-        theta=alt.Theta('Macro:N'), radius=alt.Radius('g:Q', scale=alt.Scale(domain=[0,maxv])))
-    line = alt.Chart(df2).mark_line(point=True).encode(
-        theta=alt.Theta('Macro:N'), radius=alt.Radius('g:Q', scale=alt.Scale(domain=[0,maxv])), tooltip=['Macro','g']).interactive()
-    st.altair_chart(area+line, use_container_width=False)
-# --- Alternative Makro-Darstellung als gruppierte Balken ---
-st.markdown("---")
-st.subheader("📊 Makro-Verteilung (Balken)")
-
-# df_sp enthält ja schon ['Macro','g']
-# wir erzeugen einen einfachen Balken-Chart
-bar = (
-    alt.Chart(df_sp)
-       .mark_bar()
-       .encode(
-           x=alt.X("Macro:N", title="Makronährstoff"),
-           y=alt.Y("g:Q", title="Gramm pro Portion"),
-           color=alt.Color("Macro:N", legend=None),
-           tooltip=["Macro","g"]
-       )
-       .properties(width=400, height=300)
-)
-st.altair_chart(bar, use_container_width=False)
+    # bar chart instead of spider
+    bar = (
+        alt.Chart(df_sp)
+           .mark_bar()
+           .encode(
+               x=alt.X('Macro:N', title='Makronährstoff'),
+               y=alt.Y('g:Q', title='g pro Portion'),
+               color=alt.Color('Macro:N', legend=None),
+               tooltip=['Macro','g']
+           )
+           .properties(width=300, height=200)
+    )
+    with col_chart:
+        st.altair_chart(bar, use_container_width=True)
 
 # --- Dual Charts: Verbrauch vs Intake ---
 st.subheader("⏲️ Verlauf Verbrauch & Intake")
@@ -214,4 +206,3 @@ if coords:
     xml = gpx_obj.to_xml()
     st.download_button("GPX herunterladen", xml, file_name="route_intake.gpx", mime="application/gpx+xml")
 
-st.info("Alle Funktionen aktiv – USDA FDC API-Key verwendet.")
