@@ -35,6 +35,7 @@ if "auth_code" not in st.session_state:
 else:
     st.success("✅ Verbindung zu Strava erfolgreich!")
 
+
     # --- Schritt 2: Token anfordern ---
     token_response = requests.post(
         url="https://www.strava.com/oauth/token",
@@ -46,17 +47,23 @@ else:
         }
     ).json()
 
-    access_token = token_response["access_token"]
-    st.session_state.access_token = access_token
+    if "access_token" in token_response:
+        access_token = token_response["access_token"]
+        st.session_state.access_token = access_token
 
-    # --- Schritt 3: Aktivitäten abrufen ---
-    activities_response = requests.get(
-        "https://www.strava.com/api/v3/athlete/activities",
-        headers={"Authorization": f"Bearer {access_token}"}
-    ).json()
+        # --- Schritt 3: Aktivitäten abrufen ---
+        activities_response = requests.get(
+            "https://www.strava.com/api/v3/athlete/activities",
+            headers={"Authorization": f"Bearer {access_token}"}
+        ).json()
 
-    st.subheader("Deine letzten Aktivitäten:")
+        st.subheader("Deine letzten Aktivitäten:")
+        
+        # Nur erste 5 Aktivitäten anzeigen
+        for activity in activities_response[:5]:
+            st.write(f"- {activity['name']} ({activity['type']}) - {activity['distance']/1000:.2f} km, {activity['elapsed_time']//60} min")
     
-    # Nur erste 5 Aktivitäten anzeigen
-    for activity in activities_response[:5]:
-        st.write(f"- {activity['name']} ({activity['type']}) - {activity['distance']/1000:.2f} km, {activity['elapsed_time']//60} min")
+    else:
+        st.error("❌ Fehler bei der Strava-Autorisierung. Bitte versuche es erneut.")
+        st.json(token_response)  # Zeige die ganze Antwort an zum Debuggen
+    
