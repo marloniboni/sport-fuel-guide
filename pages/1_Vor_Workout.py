@@ -140,7 +140,7 @@ for food in foods:
     col_img, col_chart = st.columns([1,2])
     with col_img:
         if img: st.image(img, width=100)
-        st.write(f"**{desc}**")
+        st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
     # nutrient details
     details = get_food_details(fdc)
     nut = {}
