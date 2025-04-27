@@ -12,22 +12,58 @@ import os
 st.set_page_config(page_title="Vor-Workout Planung", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
+/* Global background and font */
 body {
-    background-color: #0e0e10;
-    color: #e0e0e0;
+  background: linear-gradient(135deg, #0a0a0f 0%, #1f1f2e 100%);
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen;
 }
+/* Headers */
+h1, .stApp h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: -webkit-linear-gradient(90deg, #00ffff, #ff0066);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* Subheaders */
+h2, .stApp h2, .stApp h3 {
+  color: #ccc;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.25rem;
+}
+/* Buttons */
 .stButton>button {
-    background-color: #1f1f23;
-    color: #e0e0e0;
-    border-radius: 8px;
-    border: 1px solid #333;
+  background: linear-gradient(90deg, #00ffff, #ff0066);
+  border: none;
+  color: #0a0a0f;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  transition: transform 0.2s;
+}
+.stButton>button:hover {
+  transform: scale(1.05);
+}
+/* Inputs and controls */
+.stTextInput>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 1px solid #333;
+  border-radius: 6px;
 }
 .stSlider>div>div>div>div {
-    background: #1f1f23;
+  background: #1a1a2e;
 }
-.stSelectbox>div>div>div {
-    background: #1f1f23;
-    color: #e0e0e0;
+/* Tables */
+.stTable td, .stTable th {
+  background: #12121a;
+  color: #e0e0e0;
+}
+/* Info box */
+.stInfo {
+  background: #1a1a2e;
+  border-left: 4px solid #00ffff;
 }
 </style>
 """, unsafe_allow_html=True)
