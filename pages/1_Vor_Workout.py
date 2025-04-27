@@ -3,7 +3,7 @@ import pandas as pd
 import re
 
 # USDA FDC API Key
-FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"quests
+FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 import gpxpy
 import folium
 import altair as alt
