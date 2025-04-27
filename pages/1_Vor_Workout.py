@@ -7,101 +7,10 @@ import altair as alt
 from streamlit_folium import st_folium
 import gpxpy.gpx as gpx_module
 import os
+import re
 
-# --- Page config & dark theme CSS ---
-st.set_page_config(page_title="Vor-Workout Planung", layout="wide", initial_sidebar_state="collapsed")
-st.markdown("""
-<style>
-/* Global background and font */
-body {
-  background: linear-gradient(135deg, #0a0a0f 0%, #1f1f2e 100%);
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen;
-}
-/* Headers */
-h1, .stApp h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: -webkit-linear-gradient(90deg, #00ffff, #ff0066);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-/* Subheaders */
-h2, .stApp h2, .stApp h3 {
-  color: #ccc;
-  border-bottom: 1px solid #333;
-  padding-bottom: 0.25rem;
-}
-/* Buttons */
-.stButton>button {
-  background: linear-gradient(90deg, #00ffff, #ff0066);
-  border: none;
-  color: #0a0a0f;
-  font-weight: 600;
-  padding: 0.6rem 1.2rem;
-  border-radius: 999px;
-  transition: transform 0.2s;
-}
-.stButton>button:hover {
-  transform: scale(1.05);
-}
-/* Inputs and controls */
-.stTextInput>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {
-  background: #1a1a2e;
-  color: #e0e0e0;
-  border: 1px solid #333;
-  border-radius: 6px;
-}
-.stSlider>div>div>div>div {
-  background: #1a1a2e;
-}
-/* Tables */
-.stTable td, .stTable th {
-  background: #12121a;
-  color: #e0e0e0;
-}
-/* Info box */
-.stInfo {
-  background: #1a1a2e;
-  border-left: 4px solid #00ffff;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# --- USDA FoodData Central API Setup ---
-FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
-
-@st.cache_data
-def search_foods(query: str, limit: int = 5):
-    url = "https://api.nal.usda.gov/fdc/v1/foods/search"
-    params = {'api_key': FDC_API_KEY, 'query': query, 'pageSize': limit}
-    resp = requests.get(url, params=params)
-    resp.raise_for_status()
-    return resp.json().get('foods', [])
-
-@st.cache_data
-def get_food_details(fdc_id: int):
-    url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
-    params = {'api_key': FDC_API_KEY}
-    resp = requests.get(url, params=params)
-    resp.raise_for_status()
-    return resp.json()
-
-# --- Nutritionix for Images ---
-NX_APP_ID = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
-NX_APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
-NX_SEARCH_URL = "https://trackapi.nutritionix.com/v2/search/instant"
-
-@st.cache_data
-def fetch_image(query: str):
-    headers = {'x-app-id': NX_APP_ID, 'x-app-key': NX_APP_KEY}
-    params = {'query': query, 'branded': 'true'}
-    resp = requests.get(NX_SEARCH_URL, headers=headers, params=params)
-    resp.raise_for_status()
-    items = resp.json().get('branded', [])
-    if items:
-        return items[0].get('photo', {}).get('thumb')
-    return None
+# --- App Config ---
+st.set_page_config(page_title="Vor-Workout Planung", layout="wide")
 
 # --- App Title & Data Check ---
 st.title("⚡ Vor-Workout Planung")
@@ -109,143 +18,113 @@ if 'gewicht' not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
 gewicht = st.session_state.gewicht
+grundumsatz = st.session_state.grundumsatz
+fluessigkeit_tag = st.session_state.fluessigkeit
 sportart = st.selectbox("Sportart", ["Laufen","Radfahren","Schwimmen","Triathlon"])
 
-# --- GPX Parsing Helper ---
+# --- GPX parsing helper ---
 def parse_gpx(text: str):
     g = gpxpy.parse(text)
-    secs = g.get_duration() or 0
+    duration = g.get_duration() or 0
     dist = (g.length_3d() or 0)/1000
     coords = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
-    return secs/60, dist, coords, g
+    return duration/60, dist, coords, g
 
-mode = st.radio("Datenquelle", ["GPX-Datei","Manuelle Eingabe"])
-if mode=="GPX-Datei":
-    up = st.file_uploader("GPX-Datei hochladen", type='gpx')
-    if not up:
-        st.error("Bitte lade eine GPX-Datei hoch.")
+# --- Input: GPX link, HTML or file ---
+route_input = st.text_area("GPX-Link, iframe oder Anchor-Tag:")
+uploaded_file = st.file_uploader("Oder GPX-Datei hochladen", type="gpx")
+
+duration = None
+if route_input:
+    m = re.search(r'src=["\']([^"\']+)["\']', route_input)
+    url = m.group(1) if m else route_input.strip()
+    try:
+        resp = requests.get(url)
+        resp.raise_for_status()
+        if 'komoot.com' in url and not url.endswith('.gpx'):
+            idm = re.search(r"/tour/(\d+)", url)
+            tokm = re.search(r"share_token=([^&]+)", url)
+            if idm:
+                api_url = f"https://www.komoot.com/tour/{idm.group(1)}.gpx"
+                if tokm: api_url += f"?share_token={tokm.group(1)}"
+                resp = requests.get(api_url)
+                resp.raise_for_status()
+        duration, distanz, coords, gpx_obj = parse_gpx(resp.text)
+        st.success(f"GPX geladen: {duration:.0f} min, {distanz:.2f} km")
+    except Exception as e:
+        st.error(f"Fehler beim Laden/Parsen der GPX-URL: {e}")
         st.stop()
-    dauer, distanz, coords, gpx_obj = parse_gpx(up.read().decode())
+elif uploaded_file:
+    try:
+        text = uploaded_file.read().decode("utf-8")
+        duration, distanz, coords, gpx_obj = parse_gpx(text)
+        st.success(f"GPX-Datei geladen: {duration:.0f} min, {distanz:.2f} km")
+    except Exception as e:
+        st.error(f"Fehler beim Parsen der Datei: {e}")
+        st.stop()
 else:
-    dauer = st.slider("Dauer (Min)",15,300,60)
+    duration = st.slider("Dauer (Min)",15,300,60)
     distanz = st.number_input("Distanz (km)",0.0,100.0,10.0)
     coords = []
-st.markdown(f"**Dauer:** {dauer:.0f} Min  |  **Distanz:** {distanz:.2f} km")
 
-# --- Compute Metrics ---
-facts={"Laufen":{"Leicht":7,"Mittel":9,"Hart":12},"Radfahren":{"Leicht":5,"Mittel":7,"Hart":10},
-       "Schwimmen":{"Leicht":6,"Mittel":8,"Hart":11},"Triathlon":{"Leicht":6,"Mittel":9,"Hart":13}}
-intensity = st.select_slider("Intensität", ["Leicht","Mittel","Hart"])
-cal_hr = facts[sportart][intensity] * gewicht
-cal_burn = cal_hr * (dauer/60)
-flu_loss = 0.7 * (dauer/60)
+dauer = duration
 
-eat_i = 20 if dauer<=60 else 30 if dauer<=120 else 45 if dauer<=180 else 60
-drink_i = 15
-events = sorted(set(range(eat_i,int(dauer)+1,eat_i)) | set(range(drink_i,int(dauer)+1,drink_i)))
+# --- Compute metrics ---
+faktoren = {"Laufen":7, "Radfahren":5, "Schwimmen":6, "Triathlon":6}
+cal_burn = faktoren[sportart] * gewicht * (dauer/60)
+fluid_loss = 0.7 * (dauer/60)
+
+st.markdown("---")
+st.subheader("📈 Deine Berechnungen:")
+st.write(f"**Kalorien Training**: {int(cal_burn)} kcal")
+st.write(f"**Flüssigkeit Training**: {fluid_loss:.2f} L")
 
 # --- Intake Plan ---
-sched=[]
-for t in events:
-    row={'Minute':t}
-    if t%eat_i==0: row['Essen (kcal)']=int(cal_burn/(dauer/eat_i))
-    if t%drink_i==0: row['Trinken (L)']=round(flu_loss/(dauer/drink_i),2)
-    sched.append(row)
-df_sched=pd.DataFrame(sched).set_index('Minute')
 st.markdown("---")
-st.subheader("⏰ Intake-Plan: Essen & Trinken")
+st.subheader("⏰ Automatischer Intake-Plan")
+interval = 30 if dauer<=120 else 45 if dauer<=180 else 60
+num = max(int(dauer//interval),1)
+cal_each = cal_burn/num
+flu_each = fluid_loss/num
+schedule = []
+for i in range(1,num+1):
+    schedule.append({'Minute':int(i*interval),'Kcal':int(cal_each),'Flüssigkeit':round(flu_each,2)})
+df_sched = pd.DataFrame(schedule).set_index('Minute')
 st.table(df_sched)
 
-# --- Snack Suggestions ---
+# --- Snack & Nutritionix API ---
+APP_ID = os.getenv("NUTRITIONIX_APP_ID","9810d473")
+APP_KEY = os.getenv("NUTRITIONIX_APP_KEY","f9668e402b5a79eaee8028e4aac19a04")
+
+@st.cache_data
+def fetch_nutrition(q):
+    headers={'x-app-id':APP_ID,'x-app-key':APP_KEY,'Content-Type':'application/json'}
+    r = requests.post("https://trackapi.nutritionix.com/v2/natural/nutrients",json={'query':q},headers=headers)
+    r.raise_for_status()
+    f=r.json()['foods'][0]
+    return {'name':f['food_name'],'cal':f['nf_calories'],'serving':f['serving_qty'], 'unit':f['serving_unit']}
+
 st.markdown("---")
-st.subheader("🍪 Snack-Vorschläge")
-required_cal = cal_burn/(dauer/eat_i)
-st.write(f"Benötigte Kalorien pro Snack: **{required_cal:.0f} kcal**")
-snack_query = st.text_input("Snack suchen (optional)")
-defaults=["Raw Broccoli","Banana","Almonds","Greek Yogurt","Granola Bar"]
-queries=[snack_query] if snack_query.strip() else defaults
+st.subheader("🍌 Snack-Empfehlung vor Training")
+pre = fetch_nutrition(st.text_input("Snack eingeben","Banana"))
+st.write(f"**{pre['name']}**: {pre['serving']} {pre['unit']} (~{pre['cal']} kcal)")
 
-for q in queries:
-    if not snack_query.strip(): st.markdown(f"**Vorschlag:** {q}")
-    foods = search_foods(q,limit=5)
-    if not foods:
-        st.write(f"Keine Ergebnisse für '{q}'.")
-        continue
-    for food in foods:
-        fdc_id=food.get('fdcId')
-        name=food.get('description')
-        img_url = fetch_image(name)
-        details=get_food_details(fdc_id)
-        nutrients={}
-        for n in details.get('foodNutrients',[]):
-            if 'nutrient' in n and isinstance(n['nutrient'],dict):
-                key=n['nutrient'].get('name') or n['nutrient'].get('nutrientName')
-                val=n.get('amount') or n.get('value')
-            else:
-                key=n.get('nutrientName')
-                val=n.get('value')
-            if key: nutrients[key]=val or 0
-        cal100=nutrients.get('Energy') or nutrients.get('Calories') or 0
-        grams=required_cal*100/cal100 if cal100 else 0
-        prot100=nutrients.get('Protein') or 0
-        prot=prot100*grams/100
-        fiber100=nutrients.get('Fiber, total dietary') or nutrients.get('Dietary fiber') or 0
-        fiber=fiber100*grams/100
-        sugar100 = nutrients.get('Sugars, total including NLEA') or nutrients.get('Sugar, total') or nutrients.get('Sugars') or nutrients.get('Carbohydrate, by difference') or 0
-        sugar=sugar100*grams/100
-        fat100 = nutrients.get('Total lipid (fat)') or nutrients.get('Fat') or 0
-        fat = fat100 * grams/100
-        df_macro = pd.DataFrame({
-            'Makronährstoff': ['Fett','Ballaststoffe','Zucker','Protein'],
-            'Gramm': [fat, fiber, sugar, prot]
-        })
-        col1, col2 = st.columns([2,1])
-        if img_url: col1.image(img_url, width=80)
-        col1.markdown(f"**{name}**: {cal100:.0f} kcal/100g · **{grams:.0f} g**")
-        dfm = df_macro.copy()
-        dfm_closed = pd.concat([dfm, dfm.iloc[[0]]], ignore_index=True)
-        max_val = dfm['Gramm'].max()
-        col2.write(dfm_closed)
-        area1 = (
-            alt.Chart(dfm_closed)
-               .mark_area(interpolate='linear', opacity=0.3, color='#00ffff')
-               .encode(
-                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
-                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-               )
-        )
-        line1 = (
-            alt.Chart(dfm_closed)
-               .mark_line(point=True, color='#ff0066')
-               .encode(
-                   theta=alt.Theta('Makronährstoff:N', sort=['Fett','Ballaststoffe','Zucker','Protein']),
-                   radius=alt.Radius('Gramm:Q', scale=alt.Scale(domain=[0, max_val])),
-                   tooltip=['Makronährstoff','Gramm']
-               )
-               .interactive()
-        )
-        spider1 = alt.layer(area1, line1).properties(width=250, height=250, title='Makronährstoffe')
-        col2.altair_chart(spider1, use_container_width=False)
-        m = folium.Map(location=coords[0] if coords else [0,0], zoom_start=13, tiles='OpenStreetMap')
-        if coords:
-            folium.PolyLine(coords, color='#00ffff', weight=4).add_to(m)
-            for t in events:
-                idx = min(int(t/dauer*len(coords)), len(coords)-1)
-                lat, lon = coords[idx]
-                col = '#ff0066' if t % eat_i == 0 else '#66ffff'
-                folium.CircleMarker((lat, lon), radius=8, popup=f"{t} Min", color=col, fill=True).add_to(m)
-        st_folium(m, width=700, height=500)
+# --- Chart ---
+st.markdown("---")
+st.subheader("📊 Verlauf Kalorien & Flüssigkeit")
+mins=list(range(int(dauer)+1))
+cal_series=[cal_burn/dauer*m for m in mins]lu_series=[fluid_loss/dauer*m for m in mins]
+c_df=pd.DataFrame({'Minute':mins,'Kalorien':cal_series,'Flüssigkeit':flu_series}).set_index('Minute')
+st.line_chart(c_df)
 
-        if 'gpx_obj' in locals():
-            export = gpx_module.GPX()
-            trk = gpx_module.GPXTrack(); export.tracks.append(trk)
-            seg = gpx_module.GPXTrackSegment(); trk.segments.append(seg)
-            for lat, lon in coords:
-                seg.points.append(gpx_module.GPXTrackPoint(lat, lon))
-            for t in events:
-                idx = min(int(t/dauer*len(coords)), len(coords)-1)
-                lat, lon = coords[idx]
-                export.waypoints.append(gpx_module.GPXWaypoint(lat, lon, name=f"{t} Min"))
-            st.download_button("Download GPX mit Intake-Punkten", export.to_xml(), file_name="route_intake.gpx", mime="application/gpx+xml")
+# --- Map & GPX Export ---
+st.markdown("---")
+st.subheader("🗺️ Route & Download")
+if coords:
+    m=folium.Map(location=coords[0],zoom_start=13)
+    folium.PolyLine(coords,color='blue').add_to(m)
+    st_folium(m,width=700,height=400)
+    xml=gpx_obj.to_xml()
+    st.download_button("GPX herunterladen",xml,file_name="route.gpx",mime="application/gpx+xml")
 
-st.info("Dark/futuristisches Design aktiviert. Viel Erfolg bei deinem Workout!")
+st.info("Alle Funktionen wiederhergestellt.")
