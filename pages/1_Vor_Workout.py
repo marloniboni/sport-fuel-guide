@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
-import requests
+import re
+
+# USDA FDC API Key
+FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"quests
 import gpxpy
 import folium
 import altair as alt
@@ -176,4 +179,4 @@ if coords:
     xml=gpx_obj.to_xml()
     st.download_button("GPX herunterladen",xml,file_name="route.gpx",mime="application/gpx+xml")
 
-st.info("App läuft mit Nutritionix, nicht USDA API.")
+
