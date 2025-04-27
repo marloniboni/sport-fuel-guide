@@ -5,7 +5,7 @@ import urllib
 # --- Strava API Credentials ---
 CLIENT_ID = "157336"
 CLIENT_SECRET = "91427e877cc7921d28692d6a57312a5edcd12325"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/Nach_Workout_Strava"  # Beispiel: https://nach-workout.streamlit.app/
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/Nach_Workout_Strava"
 
 # --- Schritt 1: Nutzer zu Strava weiterleiten ---
 def get_strava_authorization_url():
@@ -27,10 +27,10 @@ if "auth_code" not in st.session_state:
     st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
     
     # Checke ob ein Code im URL-Parameter ist
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params  # <-- Anpassung hier
     if "code" in query_params:
         st.session_state.auth_code = query_params["code"][0]
-        st.experimental_rerun()
+        st.rerun()  # <-- Anpassung hier
 
 else:
     st.success("✅ Verbindung zu Strava erfolgreich!")
@@ -60,5 +60,3 @@ else:
     # Nur erste 5 Aktivitäten anzeigen
     for activity in activities_response[:5]:
         st.write(f"- {activity['name']} ({activity['type']}) - {activity['distance']/1000:.2f} km, {activity['elapsed_time']//60} min")
-
-    # Hier könnten wir weitermachen: Aktivität auswählen, analysieren usw.
