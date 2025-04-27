@@ -77,9 +77,10 @@ st.subheader("📈 Berechnungen")
 st.write(f"Kalorienverbrauch: **{int(cal_burn)} kcal**  •  Flüssigkeitsverlust: **{fluid_loss:.2f} L**")
 
 # --- Intake Schedule ---
-eat_interval   = st.select_slider("Essen alle (Min)", [15,20,30,45,60], value=30)
-drink_interval = st.select_slider("Trinken alle (Min)", [10,15,20,30], value=15)
-events = sorted(set(range(eat_interval, int(dauer)+1, eat_interval)) | set(range(drink_interval, int(dauer)+1, drink_interval)))
+# Berechne Kalorien pro Snack-Ereignis einmalig (vor schedule!)
+
+
+eat_interval   = st.select_slider("Essen alle (Min)", [15,20,30,45,60], value=30)(set(range(eat_interval, int(dauer)+1, eat_interval)) | set(range(drink_interval, int(dauer)+1, drink_interval)))
 
 schedule = []
 for t in events:
