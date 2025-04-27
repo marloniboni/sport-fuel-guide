@@ -5,7 +5,7 @@ import urllib
 # --- Strava API Credentials ---
 CLIENT_ID = "157336"
 CLIENT_SECRET = "91427e877cc7921d28692d6a57312a5edcd12325"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"  # Wichtig: Hauptseite!
 
 # --- Schritt 1: Nutzer zu Strava weiterleiten ---
 def get_strava_authorization_url():
@@ -22,21 +22,14 @@ def get_strava_authorization_url():
 # --- Streamlit Seite ---
 st.title("🚴‍♂️ Verbinde dein Strava-Konto")
 
-if "auth_code" not in st.session_state:
-    auth_url = get_strava_authorization_url()
-    st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
-    
-    # Checke ob ein Code im URL-Parameter ist
-    query_params = st.query_params  # <-- Anpassung hier
-    if "code" in query_params:
-        st.session_state.auth_code = query_params["code"][0]
-        st.rerun()  # <-- Anpassung hier
+# Schritt: Prüfen, ob Auth-Code da
+query_params = st.query_params
 
-else:
+if "code" in query_params and "auth_code" not in st.session_state:
+    st.session_state.auth_code = query_params["code"][0]
     st.success("✅ Verbindung zu Strava erfolgreich!")
 
-
-    # --- Schritt 2: Token anfordern ---
+    # --- Token anfordern ---
     token_response = requests.post(
         url="https://www.strava.com/oauth/token",
         data={
@@ -51,19 +44,14 @@ else:
         access_token = token_response["access_token"]
         st.session_state.access_token = access_token
 
-        # --- Schritt 3: Aktivitäten abrufen ---
-        activities_response = requests.get(
-            "https://www.strava.com/api/v3/athlete/activities",
-            headers={"Authorization": f"Bearer {access_token}"}
-        ).json()
-
-        st.subheader("Deine letzten Aktivitäten:")
-        
-        # Nur erste 5 Aktivitäten anzeigen
-        for activity in activities_response[:5]:
-            st.write(f"- {activity['name']} ({activity['type']}) - {activity['distance']/1000:.2f} km, {activity['elapsed_time']//60} min")
-    
+        # --- UND JETZT direkt auf "Nach Workout Strava" Seite springen! ---
+        st.switch_page("pages/3_Nach_Workout_Strava.py")
     else:
         st.error("❌ Fehler bei der Strava-Autorisierung. Bitte versuche es erneut.")
-        st.json(token_response)  # Zeige die ganze Antwort an zum Debuggen
-    
+        st.json(token_response)
+
+# Falls noch kein Code: Login anbieten
+if "auth_code" not in st.session_state:
+    auth_url = get_strava_authorization_url()
+    st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
+
