@@ -79,7 +79,7 @@ st.table(df_sched)
 FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 
 @st.cache_data
- def search_foods(query: str, limit: int = 5):
+def search_foods(query: str, limit: int = 5):
      url = "https://api.nal.usda.gov/fdc/v1/foods/search"
      params = {'api_key': FDC_API_KEY, 'query': query, 'pageSize': limit}
      resp = requests.get(url, params=params)
@@ -87,7 +87,7 @@ FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
      return resp.json().get('foods', [])
 
 @st.cache_data
- def get_food_details(fdc_id: int):
+def get_food_details(fdc_id: int):
      url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
      params = {'api_key': FDC_API_KEY}
      resp = requests.get(url, params=params)
