@@ -6,11 +6,13 @@ import streamlit as st
 st.title("🏡 Sport Fuel Guide")
 st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
 
+# Insert Picture before the inputs
+st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920.png", use_column_width=True)
 # Benutzerangaben
 gewicht = st.slider("Gewicht (in kg)", min_value=40, max_value=150, value=70, step=1)
 groesse = st.slider("Körpergröße (in cm)", min_value=140, max_value=210, value=175, step=1)
 alter = st.slider("Alter (in Jahren)", min_value=12, max_value=80, value=25, step=1)
-geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich", "Divers"])
+geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich"])
 
 # Harris-Benedict-Formel zur Grundumsatz-Berechnung
 if geschlecht == "Männlich":
