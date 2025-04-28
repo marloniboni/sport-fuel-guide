@@ -8,7 +8,7 @@ st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- u
 
 # Insert Picture before the inputs
 st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920", use_container_width=800)
-st.markdown("<p style='font-weight:bold; font-size:0.8rem; margin-top:-0.5rem;'>Gib ihre Daten ein👇</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Geben sie ihre Daten ein👇</p>", unsafe_allow_html=True)
 # Benutzerangaben
 gewicht = st.slider("Gewicht (in kg)", min_value=40, max_value=150, value=70, step=1)
 groesse = st.slider("Körpergröße (in cm)", min_value=140, max_value=210, value=175, step=1)
