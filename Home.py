@@ -30,7 +30,8 @@ st.markdown("---")
 st.subheader("🧮 Deine berechneten Werte:")
 
 # Insert Wahoo foto of food tracking
-st.image("https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img/https://eatmyride.com/wp-content/uploads/2023/01/garmin_balancer_new-1.png",caption="Inse ihre Zahlen hört das Rätselraten auf ihre Daten",use_container_width=400)
+st.image("https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img/https://eatmyride.com/wp-content/uploads/2023/01/garmin_balancer_new-1.png",use_container_width=200)
+st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Inse Ihren Zahlen hört das Rätselraten auf Ihre Daten💪</p>", unsafe_allow_html=True)
 
 st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
 st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
