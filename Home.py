@@ -1,12 +1,12 @@
 #now comes the Homepage
-
 import streamlit as st
-
+mkdir assets
+mv "/mnt/data/Sport Fuel for CS.png" assets/
 # --- Titel ---
 st.title("🏡 Sport Fuel Guide")
 st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
 
-# Insert Picture before the inputs
+# Insert Picture before the inputs (Nutrition picture)
 st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920", use_container_width=800)
 st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Geben sie ihre Daten ein👇</p>", unsafe_allow_html=True)
 # Benutzerangaben
@@ -29,6 +29,9 @@ fluessigkeit = gewicht * 0.035  # in Litern
 # Ergebnisse
 st.markdown("---")
 st.subheader("🧮 Deine berechneten Werte:")
+
+# Wahoo foto
+st.image("assets/Sport Fuel for CS.png",caption="Inse ihre Zahlen hört das Rätselraten auf ihre Daten",use_container_width=True)
 
 st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
 st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
