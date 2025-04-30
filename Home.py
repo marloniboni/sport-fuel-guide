@@ -77,8 +77,7 @@ if "access_token" not in st.session_state:
                 "client_secret": CLIENT_SECRET,
                 "code": auth_code,
                 "grant_type": "authorization_code"
-                # NICHT redirect_uri hier angeben!
-            }
+                    }
         ).json()
 
         if "access_token" in token_response:
