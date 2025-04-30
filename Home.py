@@ -51,7 +51,7 @@ st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Str
 
 # --- Strava API Daten ---
 CLIENT_ID = "157336"
-CLIENT_SECRET = "91427e877cc7921d28692d6a57312a5edcd12325"
+CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
 REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"
 
 def get_strava_authorization_url():
