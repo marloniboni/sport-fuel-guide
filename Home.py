@@ -51,8 +51,8 @@ st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Str
 
 # --- Strava API Daten ---
 CLIENT_ID = "157336"
-CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"
+CLIENT_SECRET = "DEIN_NEUER_SECRET"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"  # KEIN / AM ENDE!
 
 def get_strava_authorization_url():
     params = {
@@ -60,15 +60,13 @@ def get_strava_authorization_url():
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
         "scope": "read,activity:read",
-        "approval_prompt": "auto",  # <<< das ist der Fix!
+        "approval_prompt": "auto"  # Wichtig: auto, NICHT force
     }
     return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
 
 query_params = st.query_params
 
 if "access_token" not in st.session_state:
-
-    # Wenn Code vorhanden ist (nach Login)
     if "code" in query_params:
         auth_code = query_params["code"][0]
 
@@ -79,22 +77,22 @@ if "access_token" not in st.session_state:
                 "client_secret": CLIENT_SECRET,
                 "code": auth_code,
                 "grant_type": "authorization_code"
-                # ACHTUNG: kein "redirect_uri" hier – das ist der Fix!
+                # NICHT redirect_uri hier angeben!
             }
         ).json()
 
         if "access_token" in token_response:
             st.session_state.access_token = token_response["access_token"]
-            st.success("✅ Verbindung zu Strava erfolgreich! Weiterleitung...")
+            st.success("✅ Strava erfolgreich verbunden – du wirst weitergeleitet...")
             st.switch_page("pages/3_Nach_Workout_Strava.py")
         else:
-            st.error("❌ Fehler bei der Strava-Autorisierung")
+            st.error("❌ Fehler bei der Autorisierung")
             st.json(token_response)
             st.stop()
 
     else:
-        login_url = get_strava_authorization_url()
-        st.markdown(f"[➡️ Jetzt mit Strava verbinden]({login_url})")
+        auth_url = get_strava_authorization_url()
+        st.markdown(f"[➡️ Jetzt mit Strava verbinden]({auth_url})")
         st.stop()
 
 else:
