@@ -52,7 +52,7 @@ st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Str
 # --- Strava API Daten ---
 CLIENT_ID = "157336"
 CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"
 
 def get_strava_authorization_url():
     params = {
@@ -60,7 +60,7 @@ def get_strava_authorization_url():
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
         "scope": "read,activity:read",
-        "approval_prompt": "force",
+        "approval_prompt": "auto",  # <<< das ist der Fix!
     }
     return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
 
