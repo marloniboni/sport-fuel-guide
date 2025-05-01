@@ -1,15 +1,17 @@
 import streamlit as st #Imports stremlit as a module and reduces streamlit functions to st.
-import pandas as pd #Used for Data visualization (schedule, macros as bar chart, chart for intake + expenditure
+import pandas as pd #Used for Data visualization (schedule)
 import requests #used to request USDA API
 import gpxpy #import to parse gpx data (used in upload gpx data so it can parse it
-import folium
-from streamlit_folium import st_folium
-import altair as alt
-import os
-import re
+import folium #used to draw the route and highligts on map
+from streamlit_folium import st_folium #import of folium card to integrate in Streamlit
+import altair as alt #loads Altair for data visualization and gives abbreviation alt (used in snack-macro-barchart + Intake/consumption table)
 
-# --- App Configuration ---
+# Title for page
 st.set_page_config(page_title="Vor-Workout Planung", layout="wide")
+# Makes 3 columns to have the title in the middle
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.title("Vor-Workout Planung")
 
 # --- Title and User Data ---
 st.title("Vor-Workout Planung")
