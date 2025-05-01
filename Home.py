@@ -49,69 +49,67 @@ if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
 st.markdown("---")
 st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Strava analysieren?")
 
-# --- Strava API Daten ---
 import streamlit as st
 import requests
 import urllib
 
+# --- Strava API Credentials ---
 CLIENT_ID = "157336"
 CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
-REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"  # Beispiel: https://nach-workout.streamlit.app/
 
+# --- Schritt 1: Nutzer zu Strava weiterleiten ---
 def get_strava_authorization_url():
     params = {
         "client_id": CLIENT_ID,
         "redirect_uri": REDIRECT_URI,
         "response_type": "code",
         "scope": "read,activity:read",
-        "approval_prompt": "auto"
+        "approval_prompt": "force",
     }
-    return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
+    url = "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
+    return url
 
-query_params = st.query_params
-auth_code = query_params.get("code", [""])[0]
+# --- Streamlit Seite ---
+st.title("🚴‍♂️ Verbinde dein Strava-Konto")
 
-if isinstance(query_params.get("code"), list):
-    auth_code = query_params.get("code", [""])[0]
+if "auth_code" not in st.session_state:
+    auth_url = get_strava_authorization_url()
+    st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
+    
+    # Checke ob ein Code im URL-Parameter ist
+    query_params = st.experimental_get_query_params()
+    if "code" in query_params:
+        st.session_state.auth_code = query_params["code"][0]
+        st.experimental_rerun()
+
 else:
-    auth_code = query_params.get("code", "")
+    st.success("✅ Verbindung zu Strava erfolgreich!")
 
+    # --- Schritt 2: Token anfordern ---
+    token_response = requests.post(
+        url="https://www.strava.com/oauth/token",
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": st.session_state.auth_code,
+            "grant_type": "authorization_code",
+        }
+    ).json()
 
-# Debug Anzeige der URL und Query Params
-st.markdown("### 🛠️ Debug Info")
-st.write("Full URL:", full_url)
-st.write("Parsed query params:", parsed_query)
+    access_token = token_response["access_token"]
+    st.session_state.access_token = access_token
 
-# Sichere Extraktion des Auth Codes
-auth_code = parsed_query.get("code", [""])[0]
-st.write("Extracted auth code:", auth_code)
+    # --- Schritt 3: Aktivitäten abrufen ---
+    activities_response = requests.get(
+        "https://www.strava.com/api/v3/athlete/activities",
+        headers={"Authorization": f"Bearer {access_token}"}
+    ).json()
 
-# Gültigkeit prüfen
-if not auth_code or len(auth_code) < 20:
-    st.error("❌ Fehler: Authorization Code ist ungültig oder zu kurz.")
-    st.stop()
+    st.subheader("Deine letzten Aktivitäten:")
+    
+    # Nur erste 5 Aktivitäten anzeigen
+    for activity in activities_response[:5]:
+        st.write(f"- {activity['name']} ({activity['type']}) - {activity['distance']/1000:.2f} km, {activity['elapsed_time']//60} min")
 
-# Vorbereitung Token-Abruf
-payload = {
-    "client_id": CLIENT_ID,
-    "client_secret": CLIENT_SECRET,
-    "code": auth_code,
-    "grant_type": "authorization_code"
-}
-
-st.write("Payload für Token-Abruf:", payload)
-
-# Token anfordern
-token_response = requests.post(
-    url="https://www.strava.com/oauth/token",
-    data=payload
-).json()
-
-if "access_token" in token_response:
-    st.session_state.access_token = token_response["access_token"]
-    st.success("✅ Strava erfolgreich verbunden!")
-    st.switch_page("pages/3_Nach_Workout_Strava.py")
-else:
-    st.error("❌ Fehler bei der Strava-Autorisierung")
-    st.json(token_response)
-    st.stop()
+    # Hier könnten wir weitermachen: Aktivität auswählen, analysieren usw.
