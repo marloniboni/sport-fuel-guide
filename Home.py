@@ -52,7 +52,6 @@ st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Str
 # --- Strava API Daten ---
 import streamlit as st
 import requests
-from urllib.parse import urlparse, parse_qs, unquote
 import urllib
 
 CLIENT_ID = "157336"
@@ -70,9 +69,13 @@ def get_strava_authorization_url():
     return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
 
 query_params = st.query_params
-full_url = st.experimental_get_url()
-parsed_url = urlparse(full_url)
-parsed_query = parse_qs(parsed_url.query)
+auth_code = query_params.get("code", [""])[0]
+
+if isinstance(query_params.get("code"), list):
+    auth_code = query_params.get("code", [""])[0]
+else:
+    auth_code = query_params.get("code", "")
+
 
 # Debug Anzeige der URL und Query Params
 st.markdown("### 🛠️ Debug Info")
