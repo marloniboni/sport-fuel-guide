@@ -1,6 +1,6 @@
 import streamlit as st #Imports stremlit as a module and reduces streamlit functions to st.
 import pandas as pd #Used for Data visualization (schedule)
-import requests #used to request USDA API
+import requests #used to request USDA API (https://streamlit.io/components)
 import gpxpy #import to parse gpx data (used in upload gpx data so it can parse it
 import folium #used to draw the route and highligts on map
 from streamlit_folium import st_folium #import of folium card to integrate in Streamlit
@@ -8,14 +8,10 @@ import altair as alt #loads Altair for data visualization and gives abbreviation
 
 # Title for page
 st.set_page_config(page_title="Vor-Workout Planung", layout="wide")
-# Makes 3 columns to have the title in the middle
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.title("Vor-Workout Planung")
 
-# --- Title and User Data ---
+# Title and User interaction
 st.title("Vor-Workout Planung")
-if 'gewicht' not in st.session_state:
+if 'gewicht' not in st.session_state:#examines if weight is in session state as sample to examine if user has put in their metrics
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
 gewicht = st.session_state.gewicht
