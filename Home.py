@@ -45,7 +45,6 @@ st.markdown("### 🏋️ Hast du ein Workout geplant?")
 if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
     st.switch_page("pages/1_Vor Workout.py")
 
-
 # --- STRAVA LOGIN ---
 st.markdown("---")
 st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Strava analysieren?")
@@ -71,31 +70,23 @@ if "access_token" not in st.session_state:
     if "code" in query_params:
         auth_code = query_params["code"][0]
 
-        st.markdown("#### 🛠️ Debug")
-        st.write("Query params:", query_params)
-        st.write("Authorization code:", auth_code)
+        # --- Debug anzeigen ---
+        st.markdown("### 🛠️ Debug Info")
+        st.write("Query parameters:", query_params)
+        st.write("Authorization code from URL:", auth_code)
 
         payload = {
-    "client_id": CLIENT_ID,
-    "client_secret": CLIENT_SECRET,
-    "code": auth_code,
-    "grant_type": "authorization_code"
-}
-st.write("Token request payload:", payload)
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": auth_code,
+            "grant_type": "authorization_code"
+        }
+        st.write("Payload für Token-Abruf an Strava:", payload)
 
-token_response = requests.post(
-    url="https://www.strava.com/oauth/token",
-    data=payload
-).json()
-        
+        # --- Token anfordern ---
         token_response = requests.post(
             url="https://www.strava.com/oauth/token",
-            data={
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "code": auth_code,
-                "grant_type": "authorization_code"
-            }
+            data=payload
         ).json()
 
         if "access_token" in token_response:
