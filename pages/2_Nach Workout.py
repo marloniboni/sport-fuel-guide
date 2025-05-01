@@ -1,36 +1,30 @@
 import streamlit as st
-import pandas as pd
-import altair as alt
 
-st.title("Radar-Test")
+st.title("📊 Analyse deiner Strava-Aktivität")
 
-# hard-coded example data
-df = pd.DataFrame({
-    "Makronährstoff": ["Fett","Protein","Kohlenhydrate","Zucker"],
-    "Gramm": [10, 30, 60, 5]
-})
+# Prüfen, ob eine Aktivität vorhanden ist
+if "selected_activity" not in st.session_state:
+    st.error("⚠️ Keine Aktivität ausgewählt. Bitte kehre zur Startseite zurück und wähle eine Aktivität.")
+    st.page_link("Home", label="Zurück zur Home-Seite", icon="🏠")
+    st.stop()
 
-st.write(df)
+activity = st.session_state["selected_activity"]
 
-area = (
-    alt.Chart(df)
-       .mark_area(interpolate="linear", opacity=0.3)
-       .encode(
-           theta=alt.Theta("Makronährstoff:N", sort=["Fett","Protein","Kohlenhydrate","Zucker"]),
-           radius=alt.Radius("Gramm:Q"),
-           color=alt.Color("Makronährstoff:N", legend=None)
-       )
-)
-line = (
-    alt.Chart(df)
-       .mark_line(point=True)
-       .encode(
-           theta=alt.Theta("Makronährstoff:N", sort=["Fett","Protein","Kohlenhydrate","Zucker"]),
-           radius=alt.Radius("Gramm:Q"),
-           color=alt.Color("Makronährstoff:N", legend=None),
-           tooltip=["Makronährstoff","Gramm:Q"]
-       )
-       .interactive()
-)
-radar = (area + line).properties(width=300, height=300)
-st.altair_chart(radar, use_container_width=True)
+# Basisinfos
+st.subheader(f"🏃 Aktivität: {activity['name']}")
+st.write(f"📅 Datum: `{activity['start_date_local']}`")
+st.write(f"⏱️ Dauer: `{activity['elapsed_time'] // 60} min`")
+st.write(f"📏 Distanz: `{activity['distance']/1000:.2f} km`")
+st.write(f"🔥 Kalorien: `{activity.get('kilojoules', 'k.A.')}`")
+st.write(f"🏔️ Höhenmeter: `{activity.get('total_elevation_gain', 0)} m`")
+st.write(f"💓 Durchschnittspuls: `{activity.get('average_heartrate', 'nicht verfügbar')}`")
+
+# Optionale Erweiterung: Geschwindigkeit berechnen
+if activity["elapsed_time"] > 0:
+    speed = (activity["distance"] / activity["elapsed_time"]) * 3.6  # m/s → km/h
+    st.write(f"🚴 Durchschnittsgeschwindigkeit: `{speed:.2f} km/h`")
+
+# Optional: zur Startseite zurück
+st.markdown("---")
+if st.button("🏠 Zurück zur Home-Seite"):
+    st.switch_page("Home")
