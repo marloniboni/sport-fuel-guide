@@ -17,16 +17,16 @@ if 'gewicht' not in st.session_state:#examines if weight is in session state as 
 gewicht = st.session_state.gewicht
 sportart = st.selectbox("Sportart", ["Laufen","Radfahren","Schwimmen"])
 
-# --- GPX Parsing Helper ---
-def parse_gpx(text: str):
-    g = gpxpy.parse(text)
+# GPX Parsing for uploaded Data
+def parse_gpx(text: str): #https://stackoverflow.com/questions/11105663/how-to-extract-gpx-data-with-python/11105679#11105679
+    g = gpxpy.parse(text) #
     duration_sec = g.get_duration() or 0
     distance_km  = (g.length_3d() or 0) / 1000
     coords = [(pt.latitude, pt.longitude) for tr in g.tracks for seg in tr.segments for pt in seg.points]
     return duration_sec/60, distance_km, coords, g
 
-# --- Input: GPX or Manual ---
-# --- Input: GPX-Datei oder Manuelle Eingabe ---
+#Input: GPX or Manual
+#Input: GPX-Datei oder Manuelle Eingabe
 mode = st.radio("Datenquelle wählen", ["GPX-Datei hochladen","Manuelle Eingabe"])
 if mode == "GPX-Datei hochladen":
     uploaded_file = st.file_uploader("GPX-Datei hochladen", type="gpx")
