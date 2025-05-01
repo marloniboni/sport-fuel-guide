@@ -71,6 +71,23 @@ if "access_token" not in st.session_state:
     if "code" in query_params:
         auth_code = query_params["code"][0]
 
+        st.markdown("#### 🛠️ Debug")
+        st.write("Query params:", query_params)
+        st.write("Authorization code:", auth_code)
+
+        payload = {
+    "client_id": CLIENT_ID,
+    "client_secret": CLIENT_SECRET,
+    "code": auth_code,
+    "grant_type": "authorization_code"
+}
+st.write("Token request payload:", payload)
+
+token_response = requests.post(
+    url="https://www.strava.com/oauth/token",
+    data=payload
+).json()
+        
         token_response = requests.post(
             url="https://www.strava.com/oauth/token",
             data={
