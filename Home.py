@@ -71,45 +71,32 @@ if "code" in query_params and "auth_code" not in st.session_state:
     st.markdown('<meta http-equiv="refresh" content="0;URL=/" />', unsafe_allow_html=True)
     st.stop()
 
-
-# Authentifizierung
-if "auth_code" not in st.session_state:
-    auth_url = get_strava_authorization_url()
-    st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
-else:
+# --- Ab hier: Zugriffstoken und Aktivitäten abrufen ---
+if "auth_code" in st.session_state:
     st.success("✅ Verbindung zu Strava erfolgreich!")
 
-    # Access Token abrufen
+    # Zugriffstoken anfordern
     token_response = requests.post(
         url="https://www.strava.com/oauth/token",
         data={
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
-            "code": st.session_state.get("auth_code", ""),
+            "code": st.session_state["auth_code"],
             "grant_type": "authorization_code",
         }
     ).json()
-
 
     if "access_token" in token_response:
         access_token = token_response["access_token"]
         st.session_state["access_token"] = access_token
 
-    # Optional: Aktivitäten laden usw.
-    else:
-        st.error("❌ Zugriffstoken konnte nicht abgerufen werden.")
-        st.json(token_response)  # zeigt genaue Fehlerantwort
-
-
-    if access_token:
-        st.session_state["access_token"] = access_token
-
-        # Letzte Aktivitäten holen
+        # Letzte Aktivitäten abrufen
         activities_response = requests.get(
             "https://www.strava.com/api/v3/athlete/activities",
             headers={"Authorization": f"Bearer {access_token}"}
         ).json()
 
+        # Aktivitäten anzeigen
         if isinstance(activities_response, list):
             st.subheader("Deine letzten Aktivitäten:")
             activity_names = []
@@ -120,10 +107,10 @@ else:
             selected = st.selectbox("Wähle eine Aktivität:", activity_names)
 
             if st.button("➡️ Zur Analyse dieser Aktivität"):
-                # Speichere gewählte Aktivität
                 st.session_state["selected_activity"] = activities_response[activity_names.index(selected)]
                 st.switch_page("pages/2_Nach Workout Strava.py")
         else:
             st.error("❌ Aktivitäten konnten nicht geladen werden.")
     else:
         st.error("❌ Zugriffstoken konnte nicht abgerufen werden.")
+        st.json(token_response)
