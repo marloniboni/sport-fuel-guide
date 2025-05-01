@@ -71,6 +71,12 @@ if "code" in query_params and "auth_code" not in st.session_state:
     st.markdown('<meta http-equiv="refresh" content="0;URL=/" />', unsafe_allow_html=True)
     st.stop()
 
+# <<< DIESEN TEIL HINZUFÜGEN, falls noch nicht da:
+if "auth_code" not in st.session_state:
+    auth_url = get_strava_authorization_url()
+    st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
+
+
 # --- Ab hier: Zugriffstoken und Aktivitäten abrufen ---
 if "auth_code" in st.session_state:
     st.success("✅ Verbindung zu Strava erfolgreich!")
