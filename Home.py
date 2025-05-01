@@ -78,10 +78,10 @@ if "auth_code" not in st.session_state:
     st.markdown(f"[Hier klicken, um dich mit Strava zu verbinden]({auth_url})")
     
     # Checke ob ein Code im URL-Parameter ist
-    query_params = st.experimental_get_query_params()
-    if "code" in query_params:
-        st.session_state.auth_code = query_params["code"][0]
-        st.experimental_rerun()
+query_params = st.query_params
+if "code" in query_params:
+    st.session_state.auth_code = query_params["code"][0]
+    st.rerun()
 
 else:
     st.success("✅ Verbindung zu Strava erfolgreich!")
