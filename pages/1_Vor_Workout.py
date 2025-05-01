@@ -29,26 +29,24 @@ def parse_gpx(text: str):
     return duration_sec/60, distance_km, coords, g
 
 # --- Input: GPX or Manual ---
-mode = st.radio("Datenquelle wählen", ["GPX-Datei/Link","Manuelle Eingabe"])
-if mode == "GPX-Datei/Link":
-    uploaded_file = st.file_uploader("Oder GPX-Datei hochladen", type="gpx")
-    if route_input:
-        m = re.search(r'src=["\']([^"\']+)["\']', route_input)
-        url = m.group(1) if m else route_input.strip()
-    elif uploaded_file:
+# --- Input: GPX-Datei oder Manuelle Eingabe ---
+mode = st.radio("Datenquelle wählen", ["GPX-Datei hochladen","Manuelle Eingabe"])
+if mode == "GPX-Datei hochladen":
+    uploaded_file = st.file_uploader("GPX-Datei hochladen", type="gpx")
+    if uploaded_file:
         try:
             txt = uploaded_file.read().decode()
             dauer, distanz, coords, gpx_obj = parse_gpx(txt)
         except Exception:
-            st.error("Fehler beim Parsen der GPX-Datei.")
+            st.error("Fehler beim Parsen der hochgeladenen GPX-Datei.")
             st.stop()
     else:
-        st.error("Bitte GPX-Link oder Datei angeben.")
+        st.error("Bitte eine GPX-Datei hochladen.")
         st.stop()
 else:
-    dauer  = st.slider("Dauer (Min)", 15, 300, 60)
+    dauer   = st.slider("Dauer (Min)", 15, 300, 60)
     distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
-    coords = []
+    coords  = []
 
 st.markdown(f"**Dauer:** {dauer:.0f} Min  •  **Distanz:** {distanz:.2f} km")
 
