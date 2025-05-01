@@ -39,7 +39,7 @@ st.session_state.fluessigkeit = fluessigkeit
 st.markdown("---")
 st.markdown("### 🏋️ Hast du ein Workout geplant?")
 if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
-    st.switch_page("pages/1_Vor Workout.py")
+    st.switch_page("pages/1_Vor_Workout.py")
 
 # -----------------------------
 # Strava API Integration
