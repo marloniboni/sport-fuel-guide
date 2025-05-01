@@ -67,8 +67,12 @@ def get_strava_authorization_url():
 query_params = st.query_params
 
 if "access_token" not in st.session_state:
-    if "code" in query_params:
+    if "code" in query_params and len(query_params["code"]) > 0:
         auth_code = query_params["code"][0]
+
+    if auth_code == "0":
+        st.error("❌ Fehler: Authorization Code ist '0' – ungültig.")
+        st.stop()
 
         # --- Debug anzeigen ---
         st.markdown("### 🛠️ Debug Info")
