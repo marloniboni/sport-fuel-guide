@@ -57,7 +57,7 @@ import urllib
 
 CLIENT_ID = "157336"
 CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
-REDIRECT_URI = "sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app/"
 
 def get_strava_authorization_url():
     params = {
