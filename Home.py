@@ -88,7 +88,14 @@ else:
         }
     ).json()
 
-    access_token = token_response.get("access_token", None)
+    if "access_token" in token_response:
+    access_token = token_response["access_token"]
+    st.session_state["access_token"] = access_token
+    # ...weiter wie gehabt
+else:
+    st.error("❌ Zugriffstoken konnte nicht abgerufen werden.")
+    st.json(token_response)  # 👈 gibt die genaue Fehlermeldung von Strava aus
+
 
     if access_token:
         st.session_state["access_token"] = access_token
