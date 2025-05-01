@@ -68,7 +68,9 @@ def get_strava_authorization_url():
 query_params = st.query_params
 if "code" in query_params and "auth_code" not in st.session_state:
     st.session_state["auth_code"] = query_params["code"][0]
-    st.rerun()
+    st.markdown('<meta http-equiv="refresh" content="0;URL=/" />', unsafe_allow_html=True)
+    st.stop()
+
 
 # Authentifizierung
 if "auth_code" not in st.session_state:
