@@ -6,6 +6,7 @@ folium
 streamlit-folium
 matplotlib
 noms
+fitparse
 
 
 # Optional: fixe Versionen für Reproduzierbarkeit
