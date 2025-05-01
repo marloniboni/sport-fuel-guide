@@ -64,36 +64,32 @@ def get_strava_authorization_url():
     }
     return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
 
-query_params = st.query_params
+from urllib.parse import urlparse, parse_qs
 
-if "access_token" not in st.session_state:
-    if "code" in query_params and len(query_params["code"]) > 0:
-        from urllib.parse import urlparse, parse_qs
+full_url = st.experimental_get_url()
+parsed_url = urlparse(full_url)
+parsed_query = parse_qs(parsed_url.query)
 
-        full_url = st.experimental_get_url()
-        parsed_url = urlparse(full_url)
-        parsed_query = parse_qs(parsed_url.query)
+auth_code = parsed_query.get("code", [""])[0]
 
-        auth_code = parsed_query.get("code", [""])[0]
+if auth_code in ["", "0"]:
+    st.error("❌ Fehler: Kein gültiger Authorization Code erhalten!")
+    st.stop()
 
+# --- Debug anzeigen ---
+st.markdown("### 🛠️ Debug Info")
+st.write("Vollständige URL:", full_url)
+st.write("Extracted query params:", parsed_query)
+st.write("Authorization code aus URL:", auth_code)
 
-    if auth_code == "0":
-        st.error("❌ Fehler: Authorization Code ist '0' – ungültig.")
-        st.stop()
+payload = {
+    "client_id": CLIENT_ID,
+    "client_secret": CLIENT_SECRET,
+    "code": auth_code,
+    "grant_type": "authorization_code"
+}
+st.write("Payload für Token-Abruf an Strava:", payload)
 
-        # --- Debug anzeigen ---
-        st.write("Vollständige URL:", full_url)
-        st.write("Extracted query params:", parsed_query)
-        st.write("Authorization code aus URL (sicher extrahiert):", auth_code)
-
-
-        payload = {
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "code": auth_code,
-            "grant_type": "authorization_code"
-        }
-        st.write("Payload für Token-Abruf an Strava:", payload)
 
         # --- Token anfordern ---
         token_response = requests.post(
