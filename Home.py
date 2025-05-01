@@ -44,3 +44,54 @@ st.markdown("---")
 st.markdown("### 🏋️ Hast du ein Workout geplant?")
 if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
     st.switch_page("pages/1_Vor Workout.py")
+
+
+# --- STRAVA LOGIN ---
+st.markdown("---")
+st.markdown("### 🚴‍♂️ Oder möchtest du deine letzte Aktivität von Strava analysieren?")
+
+# --- Strava API Daten ---
+CLIENT_ID = "157336"
+CLIENT_SECRET = "4531907d956f3c5c00919538d514970173156c6a"
+REDIRECT_URI = "https://sport-fuel-guide-psxpkf6ezmm76drupopimc.streamlit.app"
+
+def get_strava_authorization_url():
+    params = {
+        "client_id": CLIENT_ID,
+        "redirect_uri": REDIRECT_URI,
+        "response_type": "code",
+        "scope": "read,activity:read",
+        "approval_prompt": "auto"
+    }
+    return "https://www.strava.com/oauth/authorize?" + urllib.parse.urlencode(params)
+
+query_params = st.query_params
+
+if "access_token" not in st.session_state:
+    if "code" in query_params:
+        auth_code = query_params["code"][0]
+
+        token_response = requests.post(
+            url="https://www.strava.com/oauth/token",
+            data={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "code": auth_code,
+                "grant_type": "authorization_code"
+            }
+        ).json()
+
+        if "access_token" in token_response:
+            st.session_state.access_token = token_response["access_token"]
+            st.success("✅ Strava erfolgreich verbunden – du wirst weitergeleitet...")
+            st.switch_page("pages/3_Nach_Workout_Strava.py")
+        else:
+            st.error("❌ Fehler bei der Autorisierung")
+            st.json(token_response)
+            st.stop()
+    else:
+        auth_url = get_strava_authorization_url()
+        st.markdown(f"[➡️ Jetzt mit Strava verbinden]({auth_url})")
+        st.stop()
+else:
+    st.success("✅ Du bist bereits mit Strava verbunden!")
