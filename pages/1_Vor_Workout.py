@@ -1,8 +1,7 @@
-import streamlit as st
-import pandas as pd
-import requests
-import gpxpy
-import gpxpy.gpx as gpx_module
+import streamlit as st #Imports stremlit as a module and reduces streamlit functions to st.
+import pandas as pd #Used for Data visualization (schedule, macros as bar chart, chart for intake + expenditure
+import requests #used to request USDA API
+import gpxpy #import to parse gpx data (used in upload gpx data so it can parse it
 import folium
 from streamlit_folium import st_folium
 import altair as alt
