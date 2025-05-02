@@ -51,6 +51,9 @@ st.markdown(f"**Dauer:** {dauer:.0f} Min  •  **Distanz:** {distanz:.2f} km")
 factors    = {"Laufen":7, "Radfahren":5, "Schwimmen":6, "Triathlon":6}
 cal_burn   = factors[sportart] * gewicht * (dauer/60)
 fluid_loss = 0.7 * (dauer/60)
+# save for Nach-Workout  
+st.session_state['planned_calories'] = cal_burn  
+st.session_state['fluessigkeit']    = fluid_loss
 
 st.subheader("Deine persönlichen Berechnungen")
 st.write(f"Kalorienverbrauch: **{int(cal_burn)} kcal**  •  Flüssigkeitsverlust: **{fluid_loss:.2f} L**")
