@@ -32,7 +32,7 @@ if mode == "GPX-Datei hochladen":
     uploaded_file = st.file_uploader("GPX-Datei hochladen", type="gpx")
     if uploaded_file:
         try:
-            txt = uploaded_file.read().decode()
+            txt = uploaded_file.read().decode()e
             dauer, distanz, coords, gpx_obj = parse_gpx(txt)
         except Exception:
             st.error("Fehler beim Parsen der hochgeladenen GPX-Datei.")
@@ -86,7 +86,6 @@ def search_foods(query: str, limit: int = 5):
     resp = requests.get(url, params=params)
     resp.raise_for_status()
     return resp.json().get('foods', [])
-
 @st.cache_data
 def get_food_details(fdc_id: int):
     url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
@@ -95,7 +94,7 @@ def get_food_details(fdc_id: int):
     resp.raise_for_status()
     return resp.json()
 def fetch_image(desc):
-    return "https://via.placeholder.com/80?text=Snack"
+    return "https://via.placeholder.com/80?text={desc[:6]}"
 st.subheader("Deine Snack-Empfehlungen")
 snack_query = st.text_input("Suche deinen lieblings-Snack (Schlüsselwort)", "")
 if snack_query:
