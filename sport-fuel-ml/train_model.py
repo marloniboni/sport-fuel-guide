@@ -9,7 +9,23 @@ import joblib
 import os
 
 # 1. CSV laden (Pfad anpassen, wenn nötig)
-df = pd.read_csv("exercise_dataset.csv", skiprows=1, header=None)
+with open("sport-fuel-ml/exercise_dataset.csv", encoding="utf-8") as f:
+    lines = f.readlines()
+
+data = []
+for line in lines[1:]:  # skip header
+    parts = line.strip().split(',')
+    if len(parts) >= 6:
+        activity = ",".join(parts[:-5]).strip()
+        try:
+            vals = list(map(float, parts[-5:]))
+            data.append([activity] + vals)
+        except ValueError:
+            continue  # Zeile überspringen bei Fehlern
+
+import pandas as pd
+df = pd.DataFrame(data, columns=["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"])
+
 df.columns = ["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"]
 
 # 2. Zusätzliche Features hinzufügen
@@ -33,7 +49,9 @@ model.fit(X_train, y_train)
 
 # 6. Modell bewerten
 preds = model.predict(X_test)
-rmse = mean_squared_error(y_test, preds, squared=False)
+from math import sqrt
+mse = mean_squared_error(y_test, preds)
+rmse = sqrt(mse)
 print(f"✅ Modell fertig – RMSE: {rmse:.2f} kcal")
 
 # 7. Modell speichern
