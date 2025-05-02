@@ -120,9 +120,6 @@ if snack_query:
         grams    = req_cal * 100 / cal100 if cal100 else 0
 
         col_img, col_chart = st.columns([1,2])
-     def fetch_image(desc):
-    # Return a generic placeholder image
-            return "https://via.placeholder.com/80?text=Snack"
         with col_img:
             img = fetch_image(desc)
             if img: st.image(img, width=80)
