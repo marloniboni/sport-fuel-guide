@@ -5,7 +5,7 @@ import urllib
 # -----------------------------
 # Titel & Benutzer-Eingaben
 # -----------------------------
-st.title("🏡 Sport Fuel Guide")
+st.title("Sport Fuel Guide")
 st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
 st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920", use_container_width=800)
 
@@ -32,9 +32,9 @@ else:
 fluessigkeit = gewicht * 0.035
 
 st.markdown("---")
-st.subheader("🧮 Deine berechneten Werte:")
+st.subheader("Deine berechneten Werte:")
 st.image("https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img/https://eatmyride.com/wp-content/uploads/2023/01/garmin_balancer_new-1.png", use_container_width=25)
-st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Mit deinen Zahlen hört das Rätselraten auf 💪</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Mit deinen Zahlen hört das Rätselraten auf </p>", unsafe_allow_html=True)
 st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
 st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
 
@@ -44,7 +44,7 @@ st.session_state.fluessigkeit = fluessigkeit
 
 # Navigation zur Vorbereitungsseite
 st.markdown("---")
-st.markdown("### 🏋️ Hast du ein Workout geplant?")
+st.markdown("### Hast du ein Workout geplant?")
 if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
     st.switch_page("pages/1_Vor_Workout.py")
 
