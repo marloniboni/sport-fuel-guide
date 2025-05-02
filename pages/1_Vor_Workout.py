@@ -94,7 +94,8 @@ def get_food_details(fdc_id: int):
     resp = requests.get(url, params=params)
     resp.raise_for_status()
     return resp.json()
-
+def fetch_image(desc):
+    return "https://via.placeholder.com/80?text=Snack"
 st.subheader("Deine Snack-Empfehlungen")
 snack_query = st.text_input("Suche deinen lieblings-Snack (Schlüsselwort)", "")
 if snack_query:
@@ -118,7 +119,6 @@ if snack_query:
         carb100  = nut.get('Carbohydrate, by difference',0)
         sugar100 = sum(v for k,v in nut.items() if 'sugar' in k.lower())
         grams    = req_cal * 100 / cal100 if cal100 else 0
-
         col_img, col_chart = st.columns([1,2])
         with col_img:
             img = fetch_image(desc)
