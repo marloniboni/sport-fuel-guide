@@ -43,30 +43,34 @@ def parse_fit(fitfile):
 
     df = pd.DataFrame(records)
 
-    # Basis-Metriken
+    # 1) Basis-Metriken
     total_distance = session.get("total_distance", df["distance"].max())
     total_time = session.get(
         "total_timer_time",
         (df["timestamp"].max() - df["timestamp"].min()).total_seconds()
     )
-    avg_speed = session.get("avg_speed", df["speed"].mean())
-    max_speed = session.get("max_speed", df["speed"].max())
+
+    # Speed nur, wenn im DataFrame vorhanden
+    if "speed" in df.columns:
+        avg_speed = session.get("avg_speed", df["speed"].mean())
+        max_speed = session.get("max_speed", df["speed"].max())
+    else:
+        avg_speed = None
+        max_speed = None
 
     # Herzfrequenz
-    avg_hr = session.get(
-        "avg_heart_rate",
-        df["heart_rate"].mean() if "heart_rate" in df else None
-    )
-    max_hr = session.get(
-        "max_heart_rate",
-        df["heart_rate"].max() if "heart_rate" in df else None
-    )
+    if "heart_rate" in df.columns:
+        avg_hr = session.get("avg_heart_rate", df["heart_rate"].mean())
+        max_hr = session.get("max_heart_rate", df["heart_rate"].max())
+    else:
+        avg_hr = None
+        max_hr = None
 
     # Auf- und Abstieg
     alt_col = None
-    if "enhanced_altitude" in df:
+    if "enhanced_altitude" in df.columns:
         alt_col = "enhanced_altitude"
-    elif "altitude" in df:
+    elif "altitude" in df.columns:
         alt_col = "altitude"
 
     ascent = descent = None
@@ -106,16 +110,23 @@ def main():
 
     # 1) Basis-Metriken
     st.subheader("1. Basis-Metriken")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Distanz (km)", f"{data['total_distance_m']/1000:.2f}")
-    col2.metric("Dauer (h)", f"{data['total_time_s']/3600:.2f}")
-    col3.metric("Ø-Speed (km/h)", f"{data['avg_speed_m_s']*3.6:.1f}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Distanz (km)", f"{data['total_distance_m']/1000:.2f}")
+    c2.metric("Dauer (h)", f"{data['total_time_s']/3600:.2f}")
+    # Speed sicher anzeigen oder "n/a"
+    if data["avg_speed_m_s"] is not None:
+        c3.metric("Ø-Speed (km/h)", f"{data['avg_speed_m_s']*3.6:.1f}")
+    else:
+        c3.metric("Ø-Speed (km/h)", "n/a")
 
-    col4, col5, col6 = st.columns(3)
-    col4.metric("Max-Speed (km/h)", f"{data['max_speed_m_s']*3.6:.1f}")
+    c4, c5, c6 = st.columns(3)
+    if data["max_speed_m_s"] is not None:
+        c4.metric("Max-Speed (km/h)", f"{data['max_speed_m_s']*3.6:.1f}")
+    else:
+        c4.metric("Max-Speed (km/h)", "n/a")
     if data["ascent_m"] is not None:
-        col5.metric("Aufstieg (m)", f"{data['ascent_m']:.0f}")
-        col6.metric("Abstieg (m)", f"{data['descent_m']:.0f}")
+        c5.metric("Aufstieg (m)", f"{data['ascent_m']:.0f}")
+        c6.metric("Abstieg (m)", f"{data['descent_m']:.0f}")
 
     # 2) Zusätzliche Kennzahlen
     st.subheader("2. Zusätzliche Kennzahlen")
@@ -123,13 +134,13 @@ def main():
     if data["avg_hr"] is not None:
         extras[0].metric("Ø-Herzfrequenz (bpm)", f"{data['avg_hr']:.0f}")
         extras[1].metric("Max. Herzfrequenz (bpm)", f"{data['max_hr']:.0f}")
-    if "cadence" in df:
+    if "cadence" in df.columns:
         extras[0].metric("Ø-Kadenz (rpm)", f"{df['cadence'].mean():.0f}")
         extras[1].metric("Max. Kadenz (rpm)", f"{df['cadence'].max():.0f}")
-    if "power" in df:
+    if "power" in df.columns:
         extras[0].metric("Ø-Power (W)", f"{df['power'].mean():.0f}")
         extras[1].metric("Max. Power (W)", f"{df['power'].max():.0f}")
-    if "temperature" in df:
+    if "temperature" in df.columns:
         extras[0].metric("Ø-Temperatur (°C)", f"{df['temperature'].mean():.1f}")
 
     # 3) Kalorienverbrauch
@@ -137,14 +148,14 @@ def main():
     calories_vor = vor.calculate_vor_calories(data)
     ca, cb = st.columns(2)
     ca.metric("FIT-File gemeldet", data["fit_calories"] or "n/a")
-    cb.metric("VO2-Formel berechnet", f"{calories_vor:.0f}")
+    cb.metric("VO₂-Formel berechnet", f"{calories_vor:.0f}")
     if data["fit_calories"] is not None:
         diff = calories_vor - data["fit_calories"]
         sign = "+" if diff >= 0 else ""
         st.write(f"Unterschied: {sign}{diff:.0f} kcal")
 
     # 4) Herzfrequenz-Zonen
-    if "heart_rate" in df and data.get("max_hr"):
+    if "heart_rate" in df.columns and data.get("max_hr"):
         st.subheader("4. Herzfrequenz-Zonen")
         max_hr = data["max_hr"]
         bins = [0.6, 0.7, 0.8, 0.9, 1.0]
