@@ -94,7 +94,7 @@ def get_food_details(fdc_id: int):
     resp.raise_for_status()
     return resp.json()
 def fetch_image(desc):
-    return "https://via.placeholder.com/80?text={desc[:6]}"
+    return "https://via.placeholder.com/80?text=Snack"
 st.subheader("Deine Snack-Empfehlungen")
 snack_query = st.text_input("Suche deinen lieblings-Snack (Schlüsselwort)", "")
 if snack_query:
