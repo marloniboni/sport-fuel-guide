@@ -8,24 +8,23 @@ from fitparse import FitFile
 import importlib.util
 import os
 
-# VO2-Modul aus 1_Vor_Workout.py laden
+# --- VO2-Modul laden (Dateiname ohne Leerzeichen!) ---
 spec = importlib.util.spec_from_file_location(
     "vor_module", os.path.join("pages", "1_Vor_Workout.py")
 )
 vor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vor)
 
+
 def parse_fit(fitfile):
     """
-    Parst die FIT-Datei und gibt zurück:
+    Parst das FIT-File und liefert:
       - df: DataFrame aller Records
-      - Session-Metriken (Distanz, Zeit, Speed, Kalorien, Auf-/Abstieg)
-      - User-Profil (Gewicht, HF-Metriken)
+      - Session-Daten (Distanz, Zeit, Speed, Kalorien, Auf-/Abstieg)
+      - User-Profil (Gewicht, HF)
     """
     fit = FitFile(fitfile)
-    records = []
-    session = {}
-    user_profile = {}
+    records, session, user_profile = [], {}, {}
 
     for msg in fit.get_messages():
         if msg.name == "record":
@@ -38,47 +37,40 @@ def parse_fit(fitfile):
                 user_profile[f.name] = f.value
 
     if not records:
-        st.error("Keine Daten im FIT-File gefunden.")
+        st.error("Keine GPS-/Sensor-Daten im FIT-File gefunden.")
         return {}
 
     df = pd.DataFrame(records)
 
-    # 1) Basis-Metriken
+    # Basis
     total_distance = session.get("total_distance", df["distance"].max())
     total_time = session.get(
         "total_timer_time",
         (df["timestamp"].max() - df["timestamp"].min()).total_seconds()
     )
 
-    # Speed nur, wenn im DataFrame vorhanden
-    if "speed" in df.columns:
+    # Speed (optional)
+    if "speed" in df:
         avg_speed = session.get("avg_speed", df["speed"].mean())
         max_speed = session.get("max_speed", df["speed"].max())
     else:
-        avg_speed = None
-        max_speed = None
+        avg_speed = max_speed = None
 
-    # Herzfrequenz
-    if "heart_rate" in df.columns:
+    # Herzfrequenz (optional)
+    if "heart_rate" in df:
         avg_hr = session.get("avg_heart_rate", df["heart_rate"].mean())
         max_hr = session.get("max_heart_rate", df["heart_rate"].max())
     else:
-        avg_hr = None
-        max_hr = None
+        avg_hr = max_hr = None
 
-    # Auf- und Abstieg
-    alt_col = None
-    if "enhanced_altitude" in df.columns:
-        alt_col = "enhanced_altitude"
-    elif "altitude" in df.columns:
-        alt_col = "altitude"
-
+    # Auf-/Abstieg (optional)
+    alt_col = "enhanced_altitude" if "enhanced_altitude" in df else \
+              "altitude" if "altitude" in df else None
     ascent = descent = None
     if alt_col:
-        alt = df[alt_col].to_numpy()
-        diffs = np.diff(alt)
-        ascent = diffs[diffs > 0].sum()
-        descent = -diffs[diffs < 0].sum()
+        diff = np.diff(df[alt_col].to_numpy())
+        ascent = diff[diff > 0].sum()
+        descent = -diff[diff < 0].sum()
 
     return {
         "df": df,
@@ -94,16 +86,17 @@ def parse_fit(fitfile):
         "descent_m": descent
     }
 
+
 def main():
     st.title("Nach-Workout Auswertung")
-    st.write("Lade deine .fit-Datei hoch, um eine detaillierte Nach-Workout-Analyse zu erhalten.")
+    st.write("Lade deine .fit-Datei hoch und ergänze Gewichtswerte, um Kalorien und Flüssigkeits-verlust zu sehen.")
 
-    uploaded_file = st.file_uploader("Deine .fit-Datei auswählen", type="fit")
-    if uploaded_file is None:
-        st.info("Bitte lade eine .fit-Datei hoch, um zu starten.")
+    uploaded = st.file_uploader("Deine .fit-Datei auswählen", type="fit")
+    if not uploaded:
+        st.info("Bitte zuerst eine .fit-Datei hochladen.")
         return
 
-    data = parse_fit(uploaded_file)
+    data = parse_fit(uploaded)
     if not data:
         return
     df = data["df"]
@@ -113,7 +106,6 @@ def main():
     c1, c2, c3 = st.columns(3)
     c1.metric("Distanz (km)", f"{data['total_distance_m']/1000:.2f}")
     c2.metric("Dauer (h)", f"{data['total_time_s']/3600:.2f}")
-    # Speed sicher anzeigen oder "n/a"
     if data["avg_speed_m_s"] is not None:
         c3.metric("Ø-Speed (km/h)", f"{data['avg_speed_m_s']*3.6:.1f}")
     else:
@@ -129,53 +121,52 @@ def main():
         c6.metric("Abstieg (m)", f"{data['descent_m']:.0f}")
 
     # 2) Zusätzliche Kennzahlen
-    st.subheader("2. Zusätzliche Kennzahlen")
+    st.subheader("2. Weitere Kennzahlen")
     extras = st.columns(2)
     if data["avg_hr"] is not None:
         extras[0].metric("Ø-Herzfrequenz (bpm)", f"{data['avg_hr']:.0f}")
         extras[1].metric("Max. Herzfrequenz (bpm)", f"{data['max_hr']:.0f}")
-    if "cadence" in df.columns:
+    if "cadence" in df:
         extras[0].metric("Ø-Kadenz (rpm)", f"{df['cadence'].mean():.0f}")
         extras[1].metric("Max. Kadenz (rpm)", f"{df['cadence'].max():.0f}")
-    if "power" in df.columns:
+    if "power" in df:
         extras[0].metric("Ø-Power (W)", f"{df['power'].mean():.0f}")
         extras[1].metric("Max. Power (W)", f"{df['power'].max():.0f}")
-    if "temperature" in df.columns:
+    if "temperature" in df:
         extras[0].metric("Ø-Temperatur (°C)", f"{df['temperature'].mean():.1f}")
 
     # 3) Kalorienverbrauch
     st.subheader("3. Kalorienverbrauch")
-    calories_vor = vor.calculate_vor_calories(data)
-    ca, cb = st.columns(2)
-    ca.metric("FIT-File gemeldet", data["fit_calories"] or "n/a")
-    cb.metric("VO₂-Formel berechnet", f"{calories_vor:.0f}")
-    if data["fit_calories"] is not None:
+    try:
+        calories_vor = vor.calculate_vor_calories(data)
+    except Exception as e:
+        st.error(f"Fehler bei VO₂-Berechnung: {e}")
+        calories_vor = None
+
+    colA, colB = st.columns(2)
+    colA.metric("FIT-File gemeldet", data["fit_calories"] or "n/a")
+    colB.metric("VO₂-Formel berechnet", f"{calories_vor:.0f}" if calories_vor else "n/a")
+    if data["fit_calories"] and calories_vor:
         diff = calories_vor - data["fit_calories"]
         sign = "+" if diff >= 0 else ""
         st.write(f"Unterschied: {sign}{diff:.0f} kcal")
 
-    # 4) Herzfrequenz-Zonen
-    if "heart_rate" in df.columns and data.get("max_hr"):
-        st.subheader("4. Herzfrequenz-Zonen")
-        max_hr = data["max_hr"]
-        bins = [0.6, 0.7, 0.8, 0.9, 1.0]
-        labels = [
-            "Zone 1 (<60%)", "Zone 2 (60-70%)", "Zone 3 (70-80%)",
-            "Zone 4 (80-90%)", "Zone 5 (>90%)"
-        ]
-        hr = df["heart_rate"]
-        zones = {}
-        for i, label in enumerate(labels):
-            low = 0 if i == 0 else bins[i-1]
-            high = bins[i]
-            count = hr[(hr > low*max_hr) & (hr <= high*max_hr)].count()
-            zones[label] = count
-        total = sum(zones.values())
-        for label, count in zones.items():
-            st.write(f"{label}: {count/total*100:.1f}%")
+    # 4) Flüssigkeitsverlust
+    st.subheader("4. Flüssigkeitsverlust")
+    w_pre = st.number_input(
+        "Gewicht vor dem Training (kg)",
+        value=float(data.get("weight_kg") or 70.0)
+    )
+    w_post = st.number_input(
+        "Gewicht nach dem Training (kg)",
+        value=w_pre - 0.5
+    )
+    loss = w_pre - w_post
+    st.metric("Verlorene Flüssigkeit (L)", f"{loss:.2f}")
 
     st.markdown("---")
-    st.info("Weitere Analysen folgen in späteren Updates.")
+    st.info("Weitere Analysen (HF-Zonen, Leistungskurve etc.) folgen in künftigen Updates.")
+
 
 if __name__ == "__main__":
     main()
