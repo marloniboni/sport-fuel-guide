@@ -32,7 +32,7 @@ if mode == "GPX-Datei hochladen":
     uploaded_file = st.file_uploader("GPX-Datei hochladen", type="gpx")
     if uploaded_file:
         try:
-            txt = uploaded_file.read().decode()e
+            txt = uploaded_file.read().decode()
             dauer, distanz, coords, gpx_obj = parse_gpx(txt)
         except Exception:
             st.error("Fehler beim Parsen der hochgeladenen GPX-Datei.")
