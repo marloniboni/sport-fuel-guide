@@ -15,6 +15,13 @@ gewicht = st.slider("Gewicht (in kg)", min_value=40, max_value=150, value=70, st
 groesse = st.slider("Körpergröße (in cm)", min_value=140, max_value=210, value=175, step=1)
 alter = st.slider("Alter (in Jahren)", min_value=12, max_value=80, value=25, step=1)
 geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich"])
+# Home-Page: nachdem Du die Slider/Selectboxen gelesen hast:
+st.session_state['gewicht']    = gewicht
+st.session_state['groesse']    = groesse
+st.session_state['alter']      = alter
+st.session_state['geschlecht'] = geschlecht
+st.session_state['grundumsatz'] = grundumsatz
+st.session_state['fluessigkeit'] = fluessigkeit
 
 # Grundumsatz & Flüssigkeit
 if geschlecht == "Männlich":
