@@ -139,24 +139,41 @@ if snack_query:
 else:
     st.info("Bitte ein Schlüsselwort eingeben, um Snacks zu suchen.")
 
-# --- Dual Charts: Verbrauch vs Intake ---
-st.subheader("Dein Verbrauch & Aufnahme")
-mins = list(range(int(dauer)+1))
-calv = [cal_burn/dauer*m for m in mins]
-cali = [req_cal if m in events else 0 for m in mins]
-fluv = [fluid_loss/dauer*m for m in mins]
-flui = [fluid_loss/len(events) if m in events else 0 for m in mins]
-col1, col2 = st.columns(2)
-chart_cal = alt.layer(
-    alt.Chart(pd.DataFrame({'Minute':mins,'verbrannt':calv})).mark_line().encode(x='Minute',y='verbrannt'),
-    alt.Chart(pd.DataFrame({'Minute':mins,'intake_g':cali})).mark_bar(opacity=0.5).encode(x='Minute',y='intake_g')
-).properties(width=350,height=300)
-col1.altair_chart(chart_cal, use_container_width=True)
-chart_flu = alt.layer(
-    alt.Chart(pd.DataFrame({'Minute':mins,'verloren':fluv})).mark_line().encode(x='Minute',y='verloren'),
-    alt.Chart(pd.DataFrame({'Minute':mins,'aufnahme_l':flui})).mark_bar(opacity=0.5).encode(x='Minute',y='aufnahme_l')
-).properties(width=350,height=300)
-col2.altair_chart(chart_flu, use_container_width=True)
+#Kalorienverbrauch vs. kumulative Aufnahme & Netto-Bilanz
+import altair as alt, pandas as pd
+# 1) Prep your DataFrame
+df = pd.DataFrame({
+    'Minute': mins,
+    'Burned': calv,
+    'Ingested': cali
+})
+df['Cumulative ingested'] = df['Ingested'].cumsum()
+df['Net balance']        = df['Burned'] - df['Cumulative ingested']
+
+# 2) Base line chart
+base = alt.Chart(df).encode(
+    x=alt.X('Minute:Q', scale=alt.Scale(domain=[0, dauer]))
+)
+burn_line = base.mark_line(strokeWidth=2).encode(
+    y=alt.Y('Burned:Q', axis=alt.Axis(title='Calories')),
+    color=alt.value('#1f77b4'),
+    tooltip=['Minute','Burned']
+)
+eat_line = base.mark_line(strokeDash=[4,2]).encode(
+    y='Cumulative ingested:Q',
+    color=alt.value('#ff7f0e'),
+    tooltip=['Minute','Cumulative ingested']
+)
+net_line = base.mark_line(opacity=0.7).encode(
+    y='Net balance:Q',
+    color=alt.value('#2ca02c'),
+    tooltip=['Minute','Net balance']
+)
+chart = alt.layer(burn_line, eat_line, net_line) \
+    .properties(width=700, height=400,
+                title="Calories Burned vs. Cumulative Intake & Net Balance") \
+    .interactive()
+col1.altair_chart(chart, use_container_width=True)
 
 # --- Map & GPX Download ---
 st.subheader("Lade deinen persönlichen Plan auf dein Gerät")
