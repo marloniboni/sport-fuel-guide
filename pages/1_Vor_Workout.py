@@ -29,11 +29,11 @@ if mode == "GPX-Datei hochladen":
         st.error("Bitte eine GPX-Datei hochladen.")
         st.stop()
     try:
-        gpx         = gpxpy.parse(uploaded.getvalue().decode())
-        duration_sec= gpx.get_duration() or 0
-        dauer       = duration_sec / 60
-        distanz     = (gpx.length_3d() or 0) / 1000
-        coords      = [
+        gpx          = gpxpy.parse(uploaded.getvalue().decode())
+        duration_sec = gpx.get_duration() or 0
+        dauer        = duration_sec / 60
+        distanz      = (gpx.length_3d() or 0) / 1000
+        coords       = [
             (pt.latitude, pt.longitude)
             for tr in gpx.tracks
             for seg in tr.segments
@@ -50,8 +50,8 @@ else:
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
 faktoren   = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
-cal_burn   = faktoren[sportart] * gewicht * (dauer/60)
-fluid_loss = 0.7 * (dauer/60)
+cal_burn   = faktoren[sportart] * gewicht * (dauer / 60)
+fluid_loss = 0.7 * (dauer / 60)
 
 st.session_state['planned_calories'] = cal_burn
 st.session_state['fluessigkeit']     = fluid_loss
@@ -103,7 +103,7 @@ def get_food_details(fdc_id: int):
     r.raise_for_status()
     return r.json()
 
-# a simple in-memory cart in session state
+# Cart in session
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
@@ -119,27 +119,38 @@ if snack_query:
             fdc  = food.get("fdcId")
             details = get_food_details(fdc)
 
-            # look for nutrient "Energy" (kcal per 100g)
-            nut = {n["nutrient"]["name"]: n["amount"]
-                   for n in details.get("foodNutrients", [])
-                   if n.get("nutrient") and n["nutrient"].get("name")}
+            # build nutrient dict robustly
+            nut = {}
+            for n in details.get("foodNutrients", []):
+                if "nutrient" in n and isinstance(n["nutrient"], dict):
+                    key = n["nutrient"].get("name")
+                    val = n.get("amount", 0)
+                elif "nutrientName" in n:
+                    key = n.get("nutrientName")
+                    val = n.get("value", 0)
+                else:
+                    continue
+                if key:
+                    nut[key] = val or 0
+
+            # calories per 100g
             cal100 = nut.get("Energy") or nut.get("Calories") or 0
 
-            # find a default serving size in grams
+            # find a gram serving
             servs = details.get("servings",{}).get("serving", [])
             if isinstance(servs, dict): servs = [servs]
-            gram_serv = next(
+            gs = next(
                 (s for s in servs if s.get("metricServingUnit")=="g"),
                 servs[0] if servs else {}
             ).get("metricServingAmount", None)
-            gram_serv = float(gram_serv) if gram_serv else 100.0
+            gram_serv = float(gs) if gs else 100.0
 
-            cal_serv = cal100 * gram_serv / 100.0  # actual calories per serving
+            cal_serv = cal100 * gram_serv / 100.0
 
-            cols = st.columns([5,1])
-            with cols[0]:
-                st.markdown(f"**{desc}**  — {gram_serv:.0f} g → **{cal_serv:.0f} kcal**")
-            if cols[1].button("➕", key=f"add_{fdc}"):
+            c1, c2 = st.columns([5,1])
+            with c1:
+                st.markdown(f"**{desc}**  —  {gram_serv:.0f} g → **{cal_serv:.0f} kcal**")
+            if c2.button("➕", key=f"add_{fdc}"):
                 in_cart = [item["fdc"] for item in st.session_state.cart]
                 if fdc not in in_cart:
                     st.session_state.cart.append({
@@ -149,29 +160,27 @@ if snack_query:
                         "kcal":        cal_serv
                     })
 
-        # once you have items in your cart, show the table + line chart
+        # show cart & line chart
         cart = st.session_state.cart
         if cart:
             df_cart = pd.DataFrame(cart)
-            # compute cumulative sums
             df_cart["cum_kcal"] = df_cart["kcal"].cumsum()
             df_cart["step"]     = list(range(1, len(df_cart)+1))
 
             st.subheader("Deine ausgewählten Snacks")
             st.table(
                 df_cart[["step","description","grams","kcal"]]
-                  .rename(columns={"step":"#", "description":"Snack"})
+                  .rename(columns={"step":"#","description":"Snack"})
             )
 
-            # prepare data for line chart
             df_line = pd.DataFrame({
                 "step":     df_cart["step"],
                 "Consumed": df_cart["cum_kcal"],
-                "Burned":   df_cart["step"] / len(df_cart) * cal_burn
+                "Burned":   df_cart["step"]/len(df_cart)*cal_burn
             }).melt("step", var_name="Type", value_name="kcal")
 
             st.subheader("Kumulativ: Verbrannte vs. Gegessene kcal")
-            chart = (
+            line = (
                 alt.Chart(df_line)
                    .mark_line(point=True)
                    .encode(
@@ -182,17 +191,17 @@ if snack_query:
                    )
                    .properties(width=700, height=400)
             )
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(line, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3) Gesamt-Verbrauch vs. Intake über die Workout-Dauer
+# 3) Gesamt-Verbrauch vs. Intake über Workout-Dauer
 # ─────────────────────────────────────────────────────────────────────────────
-minutes  = list(range(int(dauer)+1))
-burned   = [cal_burn/dauer * m for m in minutes]
-ingested = [req_cal if m in events else 0 for m in minutes]
+mins     = list(range(int(dauer)+1))
+burned   = [cal_burn/dauer * m for m in mins]
+ingested = [req_cal if m in events else 0 for m in mins]
 
 df3 = pd.DataFrame({
-    "Minute":       minutes,
+    "Minute":       mins,
     "Burned":       burned,
     "Intake(kcal)": ingested
 })
@@ -201,16 +210,16 @@ df3["Balance"]    = df3["Burned"] - df3["Cum Intake"]
 
 base2      = alt.Chart(df3).encode(x="Minute:Q")
 burn_line2 = base2.mark_line(strokeWidth=2).encode(
-    y=alt.Y("Burned:Q", title="kcal verbrannt"),  color=alt.value("blue")
+    y=alt.Y("Burned:Q", title="kcal verbrannt"), color=alt.value("blue")
 )
 intake_line= base2.mark_line(strokeDash=[4,2]).encode(
     y=alt.Y("Cum Intake:Q", title="kumulierte kcal"), color=alt.value("orange")
 )
 balance_ln = base2.mark_line(opacity=0.7).encode(
-    y=alt.Y("Balance:Q", title="Netto-Bilanz"),  color=alt.value("green")
+    y=alt.Y("Balance:Q", title="Netto-Bilanz"), color=alt.value("green")
 )
 
-st.subheader("Workout-Verbrauch vs. kumulierte Aufnahme & Bilanz")
+st.subheader("Workout-Verbrauch vs. kumulative Aufnahme & Bilanz")
 st.altair_chart(
     alt.layer(burn_line2, intake_line, balance_ln)
        .properties(width=700, height=400),
@@ -237,4 +246,3 @@ if coords:
         gpx.to_xml(),
         file_name="route_intake.gpx",
         mime="application/gpx+xml"
-    )
