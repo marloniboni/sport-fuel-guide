@@ -6,7 +6,6 @@ import gpxpy
 import folium
 from streamlit_folium import st_folium
 import altair as alt
-from requests_oauthlib import OAuth1Session
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page config
@@ -30,11 +29,11 @@ if mode == "GPX-Datei hochladen":
         st.error("Bitte eine GPX-Datei hochladen.")
         st.stop()
     try:
-        gpx = gpxpy.parse(uploaded.getvalue().decode())
-        duration_sec = gpx.get_duration() or 0      # float seconds
-        dauer        = duration_sec / 60
-        distanz      = (gpx.length_3d() or 0) / 1000
-        coords       = [
+        gpx         = gpxpy.parse(uploaded.getvalue().decode())
+        duration_sec= gpx.get_duration() or 0
+        dauer       = duration_sec / 60
+        distanz     = (gpx.length_3d() or 0) / 1000
+        coords      = [
             (pt.latitude, pt.longitude)
             for tr in gpx.tracks
             for seg in tr.segments
@@ -51,8 +50,8 @@ else:
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
 faktoren   = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
-cal_burn   = faktoren[sportart] * gewicht * (dauer / 60)
-fluid_loss = 0.7 * (dauer / 60)
+cal_burn   = faktoren[sportart] * gewicht * (dauer/60)
+fluid_loss = 0.7 * (dauer/60)
 
 st.session_state['planned_calories'] = cal_burn
 st.session_state['fluessigkeit']     = fluid_loss
@@ -60,14 +59,14 @@ st.session_state['fluessigkeit']     = fluid_loss
 st.subheader("Deine persönlichen Berechnungen")
 st.write(f"Kalorienverbrauch: **{int(cal_burn)} kcal** • Flüssigkeitsverlust: **{fluid_loss:.2f} L**")
 
-eat_int   = st.select_slider("Essen alle (Min)",   [15,20,30,45,60], value=30)
-drink_int = st.select_slider("Trinken alle (Min)", [10,15,20,30],   value=15)
+eat_int   = st.select_slider("Essen alle (Min)",   [15,20,30,45,60], 30)
+drink_int = st.select_slider("Trinken alle (Min)", [10,15,20,30],   15)
 
 events    = sorted(
     set(range(eat_int,   int(dauer)+1, eat_int  )) |
     set(range(drink_int, int(dauer)+1, drink_int))
 )
-req_cal   = cal_burn   / len(events) if events else 0
+req_cal   = cal_burn / len(events) if events else 0
 req_fluid = fluid_loss / len(events) if events else 0
 
 schedule = []
@@ -82,7 +81,7 @@ st.subheader("Dein persönlicher Intake-Plan")
 st.table(df_schedule)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2) Snack-Finder via USDA + Bilder + Auswahl
+# 2) Snack-Finder (USDA) mit Accumulativer Liste & Line-Chart
 # ─────────────────────────────────────────────────────────────────────────────
 FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 
@@ -90,40 +89,25 @@ FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 def search_foods(query: str, limit: int=5):
     r = requests.get(
         "https://api.nal.usda.gov/fdc/v1/foods/search",
-        params={'api_key': FDC_API_KEY, 'query':query, 'pageSize':limit}
+        params={'api_key':FDC_API_KEY,'query':query,'pageSize':limit}
     )
     r.raise_for_status()
-    return r.json().get('foods', [])
+    return r.json().get("foods", [])
 
 @st.cache_data
 def get_food_details(fdc_id: int):
     r = requests.get(
         f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}",
-        params={'api_key': FDC_API_KEY}
+        params={'api_key':FDC_API_KEY}
     )
     r.raise_for_status()
     return r.json()
 
-# Nutritionix credentials (or set them as Secrets in Streamlit Cloud)
-NX_APP_ID  = os.getenv("NUTRITIONIX_APP_ID",  "9810d473")
-NX_APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
-
-@st.cache_data
-def fetch_image(item: str):
-    r = requests.get(
-        "https://trackapi.nutritionix.com/v2/search/instant",
-        headers={'x-app-id':NX_APP_ID,'x-app-key':NX_APP_KEY},
-        params={'query':item,'branded':'true'}
-    )
-    r.raise_for_status()
-    branded = r.json().get('branded',[])
-    return branded[0]['photo']['thumb'] if branded else None
-
-# initialize cart once
+# a simple in-memory cart in session state
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-st.subheader("🍌 Snack-Empfehlungen (USDA + Bilder)")
+st.subheader("🍌 Snack-Empfehlungen via USDA")
 snack_query = st.text_input("Snack suchen (Schlagwort)", "")
 if snack_query:
     foods = search_foods(snack_query, limit=5)
@@ -131,102 +115,107 @@ if snack_query:
         st.warning("Keine Produkte gefunden – versuche ein anderes Stichwort.")
     else:
         for food in foods:
-            desc = food.get('description','Unbekannt')
-            fdc  = food.get('fdcId')
+            desc = food.get("description", "Unbekannt")
+            fdc  = food.get("fdcId")
             details = get_food_details(fdc)
 
-            # pick first gram serving
-            serv     = (details.get("servings",{}).get("serving") or [{}])[0]
-            size_g   = float(serv.get("metric_serving_amount",0))
-            cal_serv = float(serv.get("calories",0))
-            grams_n  = (req_cal * size_g / cal_serv) if cal_serv else 0
+            # look for nutrient "Energy" (kcal per 100g)
+            nut = {n["nutrient"]["name"]: n["amount"]
+                   for n in details.get("foodNutrients", [])
+                   if n.get("nutrient") and n["nutrient"].get("name")}
+            cal100 = nut.get("Energy") or nut.get("Calories") or 0
 
-            img = fetch_image(desc)
-            c1, c2 = st.columns([5,1])
-            with c1:
-                if img:
-                    st.image(img, width=64)
-                st.markdown(f"**{desc}**  —  {size_g:.0f} g → **{cal_serv:.0f} kcal**")
-                st.caption(f"Portionsgröße: {size_g:.0f} g")
-            # on click: add one serving (with its cal_serv) to cart
-            if c2.button("➕", key=f"add_{fdc}"):
-                existing = [item['fdc'] for item in st.session_state.cart]
-                if fdc not in existing:
+            # find a default serving size in grams
+            servs = details.get("servings",{}).get("serving", [])
+            if isinstance(servs, dict): servs = [servs]
+            gram_serv = next(
+                (s for s in servs if s.get("metricServingUnit")=="g"),
+                servs[0] if servs else {}
+            ).get("metricServingAmount", None)
+            gram_serv = float(gram_serv) if gram_serv else 100.0
+
+            cal_serv = cal100 * gram_serv / 100.0  # actual calories per serving
+
+            cols = st.columns([5,1])
+            with cols[0]:
+                st.markdown(f"**{desc}**  — {gram_serv:.0f} g → **{cal_serv:.0f} kcal**")
+            if cols[1].button("➕", key=f"add_{fdc}"):
+                in_cart = [item["fdc"] for item in st.session_state.cart]
+                if fdc not in in_cart:
                     st.session_state.cart.append({
                         "fdc":         fdc,
                         "description": desc,
-                        "cal_serv":    cal_serv
+                        "grams":       gram_serv,
+                        "kcal":        cal_serv
                     })
 
-        # render cart & line-chart
+        # once you have items in your cart, show the table + line chart
         cart = st.session_state.cart
         if cart:
-            st.subheader("Deine ausgewählten Snacks")
             df_cart = pd.DataFrame(cart)
-            df_cart["cumsum"] = df_cart["cal_serv"].cumsum()
-            df_cart["step"]   = list(range(1, len(df_cart)+1))
-            st.table(df_cart[["description","cal_serv"]].rename(
-                columns={"description":"Snack","cal_serv":"kcal"}))
+            # compute cumulative sums
+            df_cart["cum_kcal"] = df_cart["kcal"].cumsum()
+            df_cart["step"]     = list(range(1, len(df_cart)+1))
 
-            # build the line chart: consumed vs burned
-            df_chart = df_cart[["step","cumsum"]].copy()
-            df_chart["burned"] = df_chart["step"]/len(df_chart) * cal_burn
+            st.subheader("Deine ausgewählten Snacks")
+            st.table(
+                df_cart[["step","description","grams","kcal"]]
+                  .rename(columns={"step":"#", "description":"Snack"})
+            )
 
-            df_long = df_chart.melt(
-                id_vars=["step"],
-                value_vars=["cumsum","burned"],
-                var_name="Type",
-                value_name="kcal"
-            ).replace({"cumsum":"Consumed","burned":"Burned"})
+            # prepare data for line chart
+            df_line = pd.DataFrame({
+                "step":     df_cart["step"],
+                "Consumed": df_cart["cum_kcal"],
+                "Burned":   df_cart["step"] / len(df_cart) * cal_burn
+            }).melt("step", var_name="Type", value_name="kcal")
 
-            st.subheader("Kumulativ: Verbraucht vs. Gegessen")
-            line = (
-                alt.Chart(df_long)
+            st.subheader("Kumulativ: Verbrannte vs. Gegessene kcal")
+            chart = (
+                alt.Chart(df_line)
                    .mark_line(point=True)
                    .encode(
-                       x=alt.X("step:Q",     title="Auswahl-Schritt"),
-                       y=alt.Y("kcal:Q",     title="kcal"),
+                       x=alt.X("step:Q", title="Auswahl-Schritt"),
+                       y=alt.Y("kcal:Q", title="kcal"),
                        color="Type:N",
                        tooltip=["Type","kcal"]
                    )
-                   .properties(width=600, height=350)
+                   .properties(width=700, height=400)
             )
-            st.altair_chart(line, use_container_width=True)
+            st.altair_chart(chart, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3) Verbrauch vs. kumulative Aufnahme über die ganze Dauer
+# 3) Gesamt-Verbrauch vs. Intake über die Workout-Dauer
 # ─────────────────────────────────────────────────────────────────────────────
-mins     = list(range(int(dauer)+1))
-burned   = [cal_burn/dauer * m for m in mins]
-ingested = [req_cal if m in events else 0 for m in mins]
+minutes  = list(range(int(dauer)+1))
+burned   = [cal_burn/dauer * m for m in minutes]
+ingested = [req_cal if m in events else 0 for m in minutes]
 
 df3 = pd.DataFrame({
-    "Minute": mins,
-    "Burned": burned,
-    "Ingested": ingested
+    "Minute":       minutes,
+    "Burned":       burned,
+    "Intake(kcal)": ingested
 })
-df3["Cum Aufnahme"] = df3["Ingested"].cumsum()
-df3["Netto"]       = df3["Burned"] - df3["Cum Aufnahme"]
+df3["Cum Intake"] = df3["Intake(kcal)"].cumsum()
+df3["Balance"]    = df3["Burned"] - df3["Cum Intake"]
 
-base      = alt.Chart(df3).encode(
-    x=alt.X("Minute:Q", axis=alt.Axis(title="Minute"))
+base2      = alt.Chart(df3).encode(x="Minute:Q")
+burn_line2 = base2.mark_line(strokeWidth=2).encode(
+    y=alt.Y("Burned:Q", title="kcal verbrannt"),  color=alt.value("blue")
 )
-burn_line = base.mark_line(strokeWidth=2).encode(
-    y=alt.Y("Burned:Q",      axis=alt.Axis(title="kcal verbrannt")),
-    color=alt.value("blue")
+intake_line= base2.mark_line(strokeDash=[4,2]).encode(
+    y=alt.Y("Cum Intake:Q", title="kumulierte kcal"), color=alt.value("orange")
 )
-eat_line  = base.mark_line(strokeDash=[4,2]).encode(
-    y=alt.Y("Cum Aufnahme:Q", axis=alt.Axis(title="kcal kumuliert")),
-    color=alt.value("orange")
+balance_ln = base2.mark_line(opacity=0.7).encode(
+    y=alt.Y("Balance:Q", title="Netto-Bilanz"),  color=alt.value("green")
 )
-net_line  = base.mark_line(opacity=0.7).encode(
-    y=alt.Y("Netto:Q",        axis=alt.Axis(title="kcal Differenz")),
-    color=alt.value("green")
+
+st.subheader("Workout-Verbrauch vs. kumulierte Aufnahme & Bilanz")
+st.altair_chart(
+    alt.layer(burn_line2, intake_line, balance_ln)
+       .properties(width=700, height=400),
+    use_container_width=True
 )
-st.subheader("Verbrauch vs. kumulative Aufnahme & Netto-Bilanz")
-st.altair_chart(alt.layer(burn_line,eat_line,net_line).properties(
-    width=700, height=400
-), use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4) Route Map & GPX-Download
@@ -237,7 +226,7 @@ if coords:
     for t in events:
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
         lat, lon = coords[idx]
-        folium.CircleMarker((lat,lon),
+        folium.CircleMarker((lat, lon),
                             radius=5,
                             color="red" if t%eat_int==0 else "yellow",
                             fill=True).add_to(m)
