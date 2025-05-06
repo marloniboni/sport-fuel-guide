@@ -87,26 +87,25 @@ Dependencies:
   - streamlit
   - pandas
   - altair
-  - fatsecret
   - requests-oauthlib
 """
 
 import streamlit as st
 import pandas as pd
 import altair as alt
-from fatsecret import Fatsecret
+from requests_oauthlib import OAuth1Session
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration: your FatSecret API credentials
 # ─────────────────────────────────────────────────────────────────────────────
-FATSECRET_KEY    = "76a1a1599f224ec48ab0bd88a5f3de8d"
-FATSECRET_SECRET = "d9295a728e974b6e9747ea1e45f8a049"
+FATSECRET_KEY    = "YOUR_CONSUMER_KEY"
+FATSECRET_SECRET = "YOUR_CONSUMER_SECRET"
 
-# Initialize Fatsecret client
-fs = Fatsecret(FATSECRET_KEY, FATSECRET_SECRET)
+# Base URL for all FatSecret API calls
+API_URL = "https://platform.fatsecret.com/rest/server.api"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cached API calls
+# Cached API calls (no fatsecret package needed)
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data
 def fs_search(query: str, limit: int = 5) -> list[dict]:
@@ -118,11 +117,18 @@ def fs_search(query: str, limit: int = 5) -> list[dict]:
         limit (int): Maximum number of items to return.
     
     Returns:
-        List of food dicts from the FatSecret API.
+        A list of food dicts from the FatSecret API.
     """
-    res = fs.search_foods(query)
-    foods = res.get("foods", {}).get("food", [])
-    return foods[:limit]
+    oauth = OAuth1Session(FATSECRET_KEY, client_secret=FATSECRET_SECRET)
+    params = {
+        'method':            'foods.search',
+        'search_expression': query,
+        'format':            'json',
+        'max_results':       limit
+    }
+    r = oauth.get(API_URL, params=params)
+    r.raise_for_status()
+    return r.json().get('foods', {}).get('food', [])
 
 @st.cache_data
 def fs_get_details(food_id: str) -> dict:
@@ -135,63 +141,76 @@ def fs_get_details(food_id: str) -> dict:
     Returns:
         A dict containing the 'food' object.
     """
-    res = fs.get_food(food_id)
-    return res.get("food", {})
+    oauth = OAuth1Session(FATSECRET_KEY, client_secret=FATSECRET_SECRET)
+    params = {
+        'method':  'food.get',
+        'food_id': food_id,
+        'format':  'json'
+    }
+    r = oauth.get(API_URL, params=params)
+    r.raise_for_status()
+    return r.json().get('food', {})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App UI
 # ─────────────────────────────────────────────────────────────────────────────
-st.subheader("Deine Snack-Empfehlungen (FatSecret)")
+st.set_page_config(page_title="Snack Finder (FatSecret)", layout="wide")
+st.title("🍿 Snack-Empfehlungen mit FatSecret")
 
 # Sidebar inputs for target calories and search term
-req_cal    = st.sidebar.number_input(
-    "Ziel-Kalorien pro Portion", min_value=50, max_value=2000, value=200
+req_cal     = st.sidebar.number_input(
+    "Ziel-Kalorien pro Portion", min_value=50, max_value=2000, value=200, step=10
 )
 snack_query = st.sidebar.text_input("Suchbegriff für Snack", "")
+
 if not snack_query:
     st.info("Bitte ein Suchbegriff eingeben, um Snacks zu suchen.")
     st.stop()
+
 # Perform search
 products = fs_search(snack_query, limit=5)
 if not products:
     st.warning("Keine Produkte gefunden – bitte ein anderes Stichwort versuchen.")
 else:
     for p in products:
-        # Extract basic info
+        # ─────────────────────────────────────────────────────────────
+        # Extract basic info & details
+        # ─────────────────────────────────────────────────────────────
         food_id = p.get("food_id")
-        name    = p.get("food_name", "Unbekanntes Produkt") 
-        # Fetch nutrient details / servings
+        name    = p.get("food_name", "Unbekanntes Produkt")
+        
         details  = fs_get_details(food_id)
         servings = details.get("servings", {}).get("serving", [])
-        
-        # Normalize to list
         if isinstance(servings, dict):
             servings = [servings]
-        # Pick first metric serving in grams (fallback to first if none)
+        
+        # Pick the first metric serving in grams (fallback to any if missing)
         serv = next(
             (s for s in servings if s.get("metric_serving_unit") == "g"),
             (servings[0] if servings else {})
         )
-        # Nutrient values per serving
+        
+        # Nutrient values for that serving
         serv_size_g = float(serv.get("metric_serving_amount", 0))  # e.g. 100
-        cal_serv    = float(serv.get("calories",             0))   # kcal per serving
+        cal_serv    = float(serv.get("calories",             0))   # kcal
         fat_serv    = float(serv.get("fat",                  0))   # g
         prot_serv   = float(serv.get("protein",              0))   # g
         carb_serv   = float(serv.get("carbohydrate",         0))   # g
-        sugar_serv  = float(serv.get("sugar",                0))   # g 
-        # TODO: handle case serv_size_g == 0 more gracefully
-        # Compute how many grams you need to hit req_cal
-        # calories_per_g = cal_serv / serv_size_g
+        sugar_serv  = float(serv.get("sugar",                0))   # g
+        
+        # Avoid division by zero
         grams = (req_cal * serv_size_g / cal_serv) if cal_serv and serv_size_g else 0
-        # Layout: image/info on the left, chart on the right
+        
+        # ─────────────────────────────────────────────────────────────
+        # Layout & Visualization
+        # ─────────────────────────────────────────────────────────────
         col1, col2 = st.columns([1, 2])
         with col1:
-            # FatSecret API doesn’t provide images for generic foods
+            # FatSecret doesn’t serve images here
             st.image("https://via.placeholder.com/80?text=No+Image", width=80)
             st.markdown(f"**{name}**")
             st.markdown(f"{grams:.0f} g → {req_cal:.0f} kcal")
         
-        # Build DataFrame of macros scaled to `grams`
         df = pd.DataFrame({
             "Macro": ["Fat", "Protein", "Carb", "Sugar"],
             "Grams": [
@@ -201,7 +220,7 @@ else:
                 sugar_serv * grams / serv_size_g
             ]
         })
-        # Render bar chart of macros
+        
         chart = (
             alt.Chart(df)
                .mark_bar()
