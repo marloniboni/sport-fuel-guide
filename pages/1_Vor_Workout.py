@@ -91,94 +91,103 @@ st.subheader("Dein persönlicher Intake-Plan")
 st.table(df_schedule)
 
 # ─────────────────────────────────────────────────────────────────────────────
-#— 2) Snack-Finder via FatSecret
+#— 2) Snack-Finder via USDA FoodData Central
 # ─────────────────────────────────────────────────────────────────────────────
-
-FATSECRET_KEY = "76a1a1599f224ec48ab0bd88a5f3de8d"
-FATSECRET_SECRET = "d9295a728e974b6e9747ea1e45f8a049"
-API_URL = "https://platform.fatsecret.com/rest/server.api"
+# --- USDA FDC Snack API ---
+FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
+@st.cache_data
+def search_foods(query: str, limit: int = 5):
+    url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+    params = {'api_key': FDC_API_KEY, 'query': query, 'pageSize': limit}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.json().get('foods', [])
 
 @st.cache_data
-def fs_search(query: str, limit: int = 5):
-    oauth = OAuth1Session(FATSECRET_KEY, client_secret=FATSECRET_SECRET)
-    params = {
-        "method": "foods.search",
-        "search_expression": query,
-        "format": "json",
-        "max_results": limit,
-    }
-    r = oauth.get(API_URL, params=params)
-    r.raise_for_status()
-    return r.json().get("foods", {}).get("food", [])
+def get_food_details(fdc_id: int):
+    url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}"
+    params = {'api_key': FDC_API_KEY}
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.json()
 
+# Berechne Kalorien pro Snack-Ereignis einmalig
+req_cal = cal_burn / len(events) if events else 0
+
+# Nutritionix für Bilder
+NX_APP_ID  = os.getenv("NUTRITIONIX_APP_ID", "9810d473")
+NX_APP_KEY = os.getenv("NUTRITIONIX_APP_KEY", "f9668e402b5a79eaee8028e4aac19a04")
 @st.cache_data
-def fs_get_details(food_id: str):
-    oauth = OAuth1Session(FATSECRET_KEY, client_secret=FATSECRET_SECRET)
-    params = {"method": "food.get", "food_id": food_id, "format": "json"}
-    r = oauth.get(API_URL, params=params)
+def fetch_image(item: str):
+    headers = {'x-app-id': NX_APP_ID, 'x-app-key': NX_APP_KEY}
+    params  = {'query': item, 'branded': 'true'}
+    r = requests.get("https://trackapi.nutritionix.com/v2/search/instant", headers=headers, params=params)
     r.raise_for_status()
-    return r.json().get("food", {})
+    b = r.json().get('branded', [])
+    return b[0]['photo']['thumb'] if b else None
 
-st.subheader("🍿 Snack-Empfehlungen mit FatSecret")
+st.subheader("🍌 Snack-Empfehlungen (USDA + Bilder)")
+snack_query = st.text_input("Snack suchen (Schlagwort)", "")
+if not snack_query:
+    st.info("Bitte ein Schlagwort eingeben, um Snacks aus der USDA-Datenbank zu finden.")
 
-snack_query = st.text_input("Suchbegriff für Snack", "")
-if snack_query:
-    products = fs_search(snack_query, limit=5)
-    if not products:
-        st.warning("Keine Produkte gefunden – versuche ein anderes Stichwort.")
-    else:
-        # how many kcal per snack-portion?
-        req_cal_snack = st.slider("Ziel-Kalorien für Snack", 50, 500, 200)
-        for p in products:
-            food_id = p["food_id"]
-            name = p.get("food_name", "Unbekannt")
-            details = fs_get_details(food_id)
-            servings = details.get("servings", {}).get("serving", [])
-            if isinstance(servings, dict):
-                servings = [servings]
-            # pick the first gram-based serving
-            serv = next(
-                (s for s in servings if s.get("metric_serving_unit") == "g"),
-                (servings[0] if servings else {}),
-            )
-            size_g = float(serv.get("metric_serving_amount", 0))
-            kcal100 = float(serv.get("calories", 0))
-            fat100 = float(serv.get("fat", 0))
-            prot100 = float(serv.get("protein", 0))
-            carb100 = float(serv.get("carbohydrate", 0))
-            sugar100 = float(serv.get("sugar", 0))
-            grams_needed = (req_cal_snack * size_g / kcal100) if kcal100 else 0
+foods = search_foods(snack_query, limit=5)
+# Loop durch die Snacks
+for food in foods:
+    desc = food.get('description')
+    fdc  = food.get('fdcId')
+    # Nährstoffe holen
+    details = get_food_details(fdc)
+    nut = {}
+    for n in details.get('foodNutrients', []):
+        if 'nutrient' in n and isinstance(n['nutrient'], dict):
+            key = n['nutrient'].get('name'); val = n.get('amount',0)
+        elif 'nutrientName' in n:
+            key = n['nutrientName'];       val = n.get('value',0)
+        else:
+            continue
+        nut[key] = val or 0
+    cal100   = nut.get('Energy') or nut.get('Calories',0)
+    fat100   = nut.get('Total lipid (fat)',0)
+    prot100  = nut.get('Protein',0)
+    carb100  = nut.get('Carbohydrate, by difference',0)
+    sugar100 = nut.get('Sugars, total including NLEA') or nut.get('Sugars',0)
+    # Berechne Gramm exakt für req_cal
+    grams    = req_cal * 100 / cal100 if cal100 else 0
 
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                st.image("https://via.placeholder.com/80?text=Snack", width=80)
-                st.markdown(f"**{name}**")
-                st.markdown(f"{grams_needed:.0f} g → {req_cal_snack} kcal")
-            df = pd.DataFrame({
-                "Macro": ["Fat", "Protein", "Carb", "Sugar"],
-                "Grams": [
-                    fat100 * grams_needed / size_g,
-                    prot100 * grams_needed / size_g,
-                    carb100 * grams_needed / size_g,
-                    sugar100 * grams_needed / size_g,
-                ],
-            })
-            chart = (
-                alt.Chart(df)
-                .mark_bar()
-                .encode(
-                    x="Macro:N",
-                    y="Grams:Q",
-                    color="Macro:N",
-                    tooltip=["Macro", "Grams"],
-                )
-                .properties(width=300, height=200)
-            )
-            with col2:
-                st.altair_chart(chart, use_container_width=True)
-else:
-    st.info("Bitte ein Suchbegriff eingeben, um Snacks zu suchen.")
+    # Anzeige
+    # original serving size from API (wenn vorhanden)
+    serving_size = details.get('servingSize') or nut.get('serving_size') or None
+    serving_unit = details.get('servingSizeUnit') or ''
+    img  = fetch_image(desc)
+    col_img, col_chart = st.columns([1,2])
+    with col_img:
+        if img:
+            st.image(img, width=80)
+        if serving_size:
+            st.write(f"**{desc}**")
+            st.write(f"Portionsgröße: {serving_size} {serving_unit}")
+            st.write(f"Benötigt: **{grams:.0f} g** für **{req_cal:.0f} kcal**")
+        else:
+            st.write(f"**{desc}** — **{grams:.0f} g** für **{req_cal:.0f} kcal**")
 
+    # Balkendiagramm Makros
+    df_sp = pd.DataFrame({
+        'Macro': ['Fat','Protein','Carb','Sugar'],
+        'g':     [fat100*grams/100, prot100*grams/100, carb100*grams/100, sugar100*grams/100]
+    })
+    maxv = df_sp['g'].max()
+    bar = (
+        alt.Chart(df_sp)
+           .mark_bar()
+           .encode(
+               x='Macro:N', y='g:Q',
+               color='Macro:N', tooltip=['Macro','g']
+           )
+           .properties(width=300, height=200)
+    )
+    with col_chart:
+        st.altair_chart(bar, use_container_width=True)
 # ─────────────────────────────────────────────────────────────────────────────
 #— 3) Verbrauch vs. Aufnahme-Chart
 # ─────────────────────────────────────────────────────────────────────────────
