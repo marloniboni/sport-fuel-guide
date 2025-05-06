@@ -34,8 +34,7 @@ if mode == "GPX-Datei hochladen":
     try:
         xml = uploaded.getvalue().decode("utf-8")
         gpx = gpxpy.parse(xml)
-        td = gpx.get_duration()
-        duration_sec = td.total_seconds() if td else 0
+        duration_sec = gpx.get_duration() or 0
         dauer = duration_sec / 60
         distanz = (gpx.length_3d() or 0) / 1000
         coords = [
