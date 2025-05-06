@@ -246,3 +246,4 @@ if coords:
         gpx.to_xml(),
         file_name="route_intake.gpx",
         mime="application/gpx+xml"
+    )
