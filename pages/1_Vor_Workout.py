@@ -87,9 +87,9 @@ Dependencies:
   - streamlit
   - pandas
   - altair
-  - requests-oauthlib
+  -requests
+  -requests-oauthlib
 """
-
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -98,8 +98,8 @@ from requests_oauthlib import OAuth1Session
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration: your FatSecret API credentials
 # ─────────────────────────────────────────────────────────────────────────────
-FATSECRET_KEY    = "YOUR_CONSUMER_KEY"
-FATSECRET_SECRET = "YOUR_CONSUMER_SECRET"
+FATSECRET_KEY    = "76a1a1599f224ec48ab0bd88a5f3de8d"
+FATSECRET_SECRET = "cc664ae84bf341ff8a22e7abe5cff3f8"
 
 # Base URL for all FatSecret API calls
 API_URL = "https://platform.fatsecret.com/rest/server.api"
@@ -111,7 +111,6 @@ API_URL = "https://platform.fatsecret.com/rest/server.api"
 def fs_search(query: str, limit: int = 5) -> list[dict]:
     """
     Search FatSecret for foods matching `query`.
-    
     Args:
         query (str): Keyword to search for (e.g. "chips").
         limit (int): Maximum number of items to return.
@@ -210,7 +209,6 @@ else:
             st.image("https://via.placeholder.com/80?text=No+Image", width=80)
             st.markdown(f"**{name}**")
             st.markdown(f"{grams:.0f} g → {req_cal:.0f} kcal")
-        
         df = pd.DataFrame({
             "Macro": ["Fat", "Protein", "Carb", "Sugar"],
             "Grams": [
@@ -220,7 +218,6 @@ else:
                 sugar_serv * grams / serv_size_g
             ]
         })
-        
         chart = (
             alt.Chart(df)
                .mark_bar()
