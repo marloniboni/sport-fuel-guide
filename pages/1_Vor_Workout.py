@@ -81,7 +81,7 @@ st.subheader("Dein persönlicher Intake-Plan")
 st.table(df_schedule)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2) Snack-Finder (USDA) mit Accumulativer Liste & Line-Chart
+# 2) Snack-Finder (USDA) mit Accumulativer Liste & Bar-Chart
 # ─────────────────────────────────────────────────────────────────────────────
 FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 
@@ -103,12 +103,12 @@ def get_food_details(fdc_id: int):
     r.raise_for_status()
     return r.json()
 
-# Cart in session
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
 st.subheader("🍌 Snack-Empfehlungen via USDA")
 snack_query = st.text_input("Snack suchen (Schlagwort)", "")
+
 if snack_query:
     foods = search_foods(snack_query, limit=5)
     if not foods:
@@ -119,79 +119,72 @@ if snack_query:
             fdc  = food.get("fdcId")
             details = get_food_details(fdc)
 
-            # build nutrient dict robustly
+            # robust nutrient parsing
             nut = {}
             for n in details.get("foodNutrients", []):
                 if "nutrient" in n and isinstance(n["nutrient"], dict):
-                    key = n["nutrient"].get("name")
-                    val = n.get("amount", 0)
+                    key = n["nutrient"].get("name"); val = n.get("amount",0)
                 elif "nutrientName" in n:
-                    key = n.get("nutrientName")
-                    val = n.get("value", 0)
+                    key = n.get("nutrientName"); val = n.get("value",0)
                 else:
                     continue
                 if key:
                     nut[key] = val or 0
 
-            # calories per 100g
             cal100 = nut.get("Energy") or nut.get("Calories") or 0
 
-            # find a gram serving
-            servs = details.get("servings",{}).get("serving", [])
-            if isinstance(servs, dict): servs = [servs]
-            gs = next(
-                (s for s in servs if s.get("metricServingUnit")=="g"),
-                servs[0] if servs else {}
-            ).get("metricServingAmount", None)
-            gram_serv = float(gs) if gs else 100.0
+            servs = details.get("servings",{}).get("serving",[])
+            if isinstance(servs, dict): servs=[servs]
+            gs = next((s for s in servs if s.get("metricServingUnit")=="g"), servs[0] if servs else {}).get("metricServingAmount",100)
+            gram_serv = float(gs)
 
             cal_serv = cal100 * gram_serv / 100.0
 
             c1, c2 = st.columns([5,1])
             with c1:
-                st.markdown(f"**{desc}**  —  {gram_serv:.0f} g → **{cal_serv:.0f} kcal**")
+                st.markdown(f"**{desc}** — {gram_serv:.0f} g → **{cal_serv:.0f} kcal**")
             if c2.button("➕", key=f"add_{fdc}"):
                 in_cart = [item["fdc"] for item in st.session_state.cart]
                 if fdc not in in_cart:
                     st.session_state.cart.append({
-                        "fdc":         fdc,
+                        "fdc": fdc,
                         "description": desc,
-                        "grams":       gram_serv,
-                        "kcal":        cal_serv
+                        "grams": gram_serv,
+                        "kcal": cal_serv
                     })
 
-        # show cart & line chart
-        cart = st.session_state.cart
-        if cart:
-            df_cart = pd.DataFrame(cart)
-            df_cart["cum_kcal"] = df_cart["kcal"].cumsum()
-            df_cart["step"]     = list(range(1, len(df_cart)+1))
+    cart = st.session_state.cart
+    if cart:
+        df_cart = pd.DataFrame(cart)
+        df_cart["cum_kcal"] = df_cart["kcal"].cumsum()
+        df_cart["step"]     = list(range(1, len(df_cart)+1))
 
-            st.subheader("Deine ausgewählten Snacks")
-            st.table(
-                df_cart[["step","description","grams","kcal"]]
-                  .rename(columns={"step":"#","description":"Snack"})
-            )
+        st.subheader("Deine ausgewählten Snacks")
+        st.table(
+            df_cart[["step","description","grams","kcal"]]
+                   .rename(columns={"step":"#","description":"Snack"})
+        )
 
-            df_line = pd.DataFrame({
-                "step":     df_cart["step"],
-                "Consumed": df_cart["cum_kcal"],
-                "Burned":   df_cart["step"]/len(df_cart)*cal_burn
-            }).melt("step", var_name="Type", value_name="kcal")
+        df_bar = pd.DataFrame({
+            "step":     df_cart["step"],
+            "Consumed": df_cart["cum_kcal"],
+            "Burned":   df_cart["step"]/len(df_cart)*cal_burn
+        }).melt("step", var_name="Type", value_name="kcal")
 
-            st.subheader("Kumulativ: Verbrannte vs. Gegessene kcal")
-            line = (
-                alt.Chart(df_line)
-                   .mark_line(point=True)
-                   .encode(
-                       x=alt.X("step:Q", title="Auswahl-Schritt"),
-                       y=alt.Y("kcal:Q", title="kcal"),
-                       color="Type:N",
-                       tooltip=["Type","kcal"]
-                   )
-                   .properties(width=700, height=400)
-            )
-            st.altair_chart(line, use_container_width=True)
+        st.subheader("Kumulativ: Verbrannte vs. Gegessene kcal")
+        bar = (
+            alt.Chart(df_bar)
+               .mark_bar()
+               .encode(
+                   x=alt.X("step:O", title="Auswahl-Schritt"),
+                   y=alt.Y("kcal:Q", title="kcal"),
+                   color="Type:N",
+                   column="Type:N",
+                   tooltip=["Type","kcal"]
+               )
+               .properties(width=150, height=300)
+        )
+        st.altair_chart(bar, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3) Gesamt-Verbrauch vs. Intake über Workout-Dauer
