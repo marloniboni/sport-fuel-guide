@@ -1,8 +1,0 @@
-streamlit
-pandas
-altair
-requests
-requests-oauthlib
-gpxpy
-folium
-streamlit-folium
