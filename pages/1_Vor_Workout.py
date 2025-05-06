@@ -95,8 +95,8 @@ st.table(df_schedule)
 #— 2) Snack-Finder via FatSecret
 # ─────────────────────────────────────────────────────────────────────────────
 
-FATSECRET_KEY = "YOUR_CONSUMER_KEY"
-FATSECRET_SECRET = "YOUR_CONSUMER_SECRET"
+FATSECRET_KEY = "76a1a1599f224ec48ab0bd88a5f3de8d"
+FATSECRET_SECRET = "d9295a728e974b6e9747ea1e45f8a049"
 API_URL = "https://platform.fatsecret.com/rest/server.api"
 
 @st.cache_data
