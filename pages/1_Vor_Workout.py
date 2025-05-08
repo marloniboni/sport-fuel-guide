@@ -71,11 +71,14 @@ activity = sportart  # also z. B. "Laufen"
 
 # Feature-Vektor für Vorhersage
 X = pd.DataFrame([{
-    "Sportart": sportart,
+    "Activity": sportart,   # redundante englische Spalte
+    "Sportart": sportart,   # deutsche Spalte
     "Gewicht": gewicht,
     "Dauer": dauer
 }])
 
+#Debug Zeile ob alle nötigen Spalten dabei sind.
+st.caption(f"🧪 Eingabe für ML-Modell: {X.columns.tolist()}")
 
 # Kalorienverbrauch vorhersagen, mit Fallback auf alte Formel
 faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
