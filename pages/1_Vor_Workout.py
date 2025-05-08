@@ -84,10 +84,10 @@ st.caption(f"🧪 Eingabe für ML-Modell: {X.columns.tolist()}")
 faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
 try:
     cal_burn = model.predict(X)[0]
+    st.success(f"✅ Modell verwendet (Activity: {activity})")
 except Exception as e:
     st.warning(f"⚠️ Fehler beim Vorhersagemodell: {e}. Formel wird verwendet.")
     cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
-
 
 
 #Flüssigkeitsverlust berechnen
