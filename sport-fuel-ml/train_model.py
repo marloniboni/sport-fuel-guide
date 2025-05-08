@@ -10,7 +10,24 @@ import os
 from math import sqrt
 
 # 1. CSV-Datei laden und vorbereiten
-raw = pd.read_csv("exercise_dataset.csv", encoding="utf-8", skiprows=1, header=None)
+# Manuelles Einlesen wegen Komma im Aktivitätsnamen
+with open("sport-fuel-ml/exercise_dataset.csv", encoding="utf-8") as f:
+    lines = f.readlines()
+
+data = []
+for line in lines[1:]:  # Skip header
+    parts = line.strip().split(',')
+    if len(parts) >= 6:
+        activity = ",".join(parts[:-5]).strip()
+        try:
+            vals = list(map(float, parts[-5:]))
+            data.append([activity] + vals)
+        except ValueError:
+            continue  # Zeile überspringen bei Fehlern
+
+import pandas as pd
+raw = pd.DataFrame(data, columns=["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"])
+
 
 # Spaltennamen zuweisen
 raw.columns = ["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"]
