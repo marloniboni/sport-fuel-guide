@@ -50,8 +50,43 @@ else:
 
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
-faktoren   = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
-cal_burn   = faktoren[sportart] * gewicht * (dauer / 60)
+
+#Machine Learning Part
+import joblib
+
+# Modell laden (nur einmal, auch bei mehreren Runs)
+@st.cache_resource
+def load_model():
+    return joblib.load("models/calorie_predictor.pkl")
+
+model = load_model()
+
+# Sportart übersetzen
+sportart_map = {
+    "Laufen": "Running",
+    "Radfahren": "Cycling",
+    "Schwimmen": "Swimming"
+}
+activity = sportart_map[sportart]
+
+# Feature-Vektor für Vorhersage
+X = pd.DataFrame([{
+    "Activity": activity,
+    "weight": gewicht,
+    "duration": dauer
+}])
+
+# Kalorienverbrauch vorhersagen, mit Fallback auf alte Formel
+faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
+try:
+    cal_burn = model.predict(X)[0]
+except Exception as e:
+    st.warning("⚠️ Fehler beim Vorhersagemodell. Formel wird verwendet.")
+    cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
+
+
+
+#Flüssigkeitsverlust berechnen
 fluid_loss = 0.7 * (dauer / 60)
 
 st.session_state["planned_calories"] = cal_burn
