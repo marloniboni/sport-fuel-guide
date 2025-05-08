@@ -67,12 +67,13 @@ sportart_map = {
     "Radfahren": "Cycling",
     "Schwimmen": "Swimming"
 }
-activity = sportart  # also z. B. "Laufen"
+
+activity = sportart_map[sportart]  # also z. B. "Laufen"
 
 # Feature-Vektor für Vorhersage
 X = pd.DataFrame([{
-    "Activity": sportart,   # redundante englische Spalte
-    "Sportart": sportart,   # deutsche Spalte
+    "Activity": sportart_map[sportart],   # <- korrekt übersetzt für das Modell
+    "Sportart": sportart,                 # <- nur für spätere Verwendung
     "Gewicht": gewicht,
     "Dauer": dauer
 }])
