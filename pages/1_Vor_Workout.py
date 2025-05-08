@@ -68,15 +68,21 @@ sportart_map = {
     "Schwimmen": "Swimming"
 }
 
-activity = sportart_map[sportart]  # also z. B. "Laufen"
+sportart_map = {
+    "Laufen": "Running",
+    "Radfahren": "Cycling, 14-15.9 mph",
+    "Schwimmen": "Swimming laps, moderate or vigorous"
+}
 
-# Feature-Vektor für Vorhersage
+activity = sportart_map[sportart]
+
 X = pd.DataFrame([{
-    "Activity": sportart_map[sportart],   # <- korrekt übersetzt für das Modell
-    "Sportart": sportart,                 # <- nur für spätere Verwendung
+    "Activity": activity,
+    "Sportart": sportart,
     "Gewicht": gewicht,
     "Dauer": dauer
 }])
+
 
 #Debug Zeile ob alle nötigen Spalten dabei sind.
 st.caption(f"🧪 Eingabe für ML-Modell: {X.columns.tolist()}")
