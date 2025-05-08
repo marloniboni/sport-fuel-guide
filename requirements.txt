@@ -11,6 +11,8 @@ altair
 requests-oauthlib
 gpxpy
 joblib
+scikit-learn
+
 
 
 # Optional: fixe Versionen für Reproduzierbarkeit
