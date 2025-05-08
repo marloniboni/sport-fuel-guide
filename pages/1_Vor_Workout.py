@@ -61,13 +61,6 @@ def load_model():
 
 model = load_model()
 
-# Sportart übersetzen
-sportart_map = {
-    "Laufen": "Running",
-    "Radfahren": "Cycling",
-    "Schwimmen": "Swimming"
-}
-
 sportart_map = {
     "Laufen": "Running",
     "Radfahren": "Cycling, 14-15.9 mph",
