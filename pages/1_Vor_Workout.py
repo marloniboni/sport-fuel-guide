@@ -69,7 +69,6 @@ sportart_map = {
 
 activity = sportart_map[sportart]
 
-st.text(f"Debug – Input fürs Modell: {X.iloc[0].to_dict()}")
 
 X = pd.DataFrame([{
     "Activity": activity,
@@ -77,6 +76,9 @@ X = pd.DataFrame([{
     "Gewicht": gewicht,
     "Dauer": dauer
 }])
+
+# Debug-Ausgabe direkt danach:
+st.text(f"Debug – Input fürs Modell:\n{X.iloc[0].to_dict()}")
 
 
 #Debug Zeile ob alle nötigen Spalten dabei sind.
