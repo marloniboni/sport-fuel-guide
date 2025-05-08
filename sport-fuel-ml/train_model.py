@@ -30,13 +30,14 @@ raw = pd.DataFrame(data, columns=["Activity", "kcal_130lb", "kcal_155lb", "kcal_
 activities = raw["Activity"]
 kcal_per_kg = raw["kcal_per_kg"]
 
-gewicht_list = list(range(55, 96, 10))   # 55, 65, 75, 85, 95
-dauer_list = list(range(30, 151, 20))    # 30, 50, ..., 150
+gewicht_list = list(range(55, 96, 10))   # z. B. 55, 65, 75, 85, 95 kg
+dauer_list = list(range(30, 151, 20))    # z. B. 30, 50, ..., 150 Min
 
 records = []
 for act, kcal_kg in zip(activities, kcal_per_kg):
     for g in gewicht_list:
         for d in dauer_list:
+            # Aktivitätsbasierter Verstärkungsfaktor
             faktor = 1.0
             if act == "Running":
                 faktor = 6.0
@@ -44,6 +45,7 @@ for act, kcal_kg in zip(activities, kcal_per_kg):
                 faktor = 4.5
             elif "Swimming" in act:
                 faktor = 5.0
+
             kcal = d * g * kcal_kg / 60 * faktor
             records.append({
                 "Activity": act,
@@ -51,6 +53,7 @@ for act, kcal_kg in zip(activities, kcal_per_kg):
                 "Dauer": d,
                 "kcal": kcal
             })
+
 
 df = pd.DataFrame(records)
 
