@@ -67,14 +67,15 @@ sportart_map = {
     "Radfahren": "Cycling",
     "Schwimmen": "Swimming"
 }
-activity = sportart_map[sportart]
+activity = sportart  # also z. B. "Laufen"
 
 # Feature-Vektor für Vorhersage
 X = pd.DataFrame([{
-    "Activity": activity,
-    "weight": gewicht,
-    "duration": dauer
+    "Sportart": sportart,
+    "Gewicht": gewicht,
+    "Dauer": dauer
 }])
+
 
 # Kalorienverbrauch vorhersagen, mit Fallback auf alte Formel
 faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
