@@ -1,24 +1,22 @@
 import pandas as pd
+import os
+import joblib
+from math import sqrt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
-import joblib
-import os
-from math import sqrt
 
-
-# 1. CSV-Datei einlesen (wegen Kommas in Activity manuell)
+# 1. CSV einlesen (wegen Kommata in Activity-Zeile manuell)
 with open("sport-fuel-ml/exercise_dataset.csv", encoding="utf-8") as f:
     lines = f.readlines()
-
 
 data = []
 for line in lines[1:]:
     parts = line.strip().split(',')
-    if len(parts) >= 6:
+    if len(parts) > 6:
         activity = ",".join(parts[:-5]).strip()
         try:
             vals = list(map(float, parts[-5:]))
@@ -28,15 +26,12 @@ for line in lines[1:]:
 
 raw = pd.DataFrame(data, columns=["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"])
 
-
-# 2. Synthetische Trainingsdaten erzeugen (mit Aktivitätsfaktor)
+# 2. Trainingsdaten erzeugen
 activities = raw["Activity"]
 kcal_per_kg = raw["kcal_per_kg"]
 
-
-gewicht_list = list(range(55, 96, 10))   # z. B. 55, 65, 75, 85, 95 kg
-dauer_list = list(range(30, 151, 20))    # z. B. 30, 50, ..., 150 Min
-
+gewicht_list = list(range(55, 96, 5))  # 55 bis 95 kg
+dauer_list = list(range(30, 151, 20))  # 30 bis 150 Min
 
 records = []
 for act, kcal_kg in zip(activities, kcal_per_kg):
@@ -44,7 +39,7 @@ for act, kcal_kg in zip(activities, kcal_per_kg):
         for d in dauer_list:
             # Aktivitätsbasierter Verstärkungsfaktor
             faktor = 1.0
-            if act == "Running":
+            if "Running" in act:
                 faktor = 6.0
             elif "Cycling" in act:
                 faktor = 4.5
@@ -59,39 +54,26 @@ for act, kcal_kg in zip(activities, kcal_per_kg):
                 "kcal": kcal
             })
 
-
+# 3. Modell trainieren
 
 df = pd.DataFrame(records)
-
-
-# 3. Features und Ziel
 X = df[["Activity", "Gewicht", "Dauer"]]
 y = df["kcal"]
 
-
-# 4. Pipeline mit reduziertem Random Forest
 preprocessor = ColumnTransformer([
     ("activity", OneHotEncoder(handle_unknown="ignore"), ["Activity"])
 ], remainder="passthrough")
 
-
-model = make_pipeline(preprocessor, RandomForestRegressor(n_estimators=20, random_state=42))
-
-
-# 5. Train/Test-Split und Training
+model = make_pipeline(preprocessor, RandomForestRegressor(n_estimators=100, random_state=42))
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model.fit(X_train, y_train)
 
-
-# 6. Evaluation
+# 4. Modell evaluieren
 preds = model.predict(X_test)
 rmse = sqrt(mean_squared_error(y_test, preds))
-print(f"✅ Modell fertig – RMSE: {rmse:.2f} kcal")
+print(f"🎉 Modell fertig = RMSE: {rmse:.2f} kcal")
 
-
-# 7. Modell speichern mit Kompression
+# 5. Modell speichern
 os.makedirs("models", exist_ok=True)
 joblib.dump(model, "models/calorie_predictor.pkl", compress=3)
-print("💾 Modell gespeichert in models/calorie_predictor.pkl (komprimiert)")
-
-
+print("🗃️ Modell gespeichert in models/calorie_predictor.pkl (komprimiert)")
