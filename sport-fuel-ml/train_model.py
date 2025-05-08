@@ -10,7 +10,7 @@ import os
 from math import sqrt
 
 # 1. CSV-Datei laden und vorbereiten
-raw = pd.read_csv("exercise_dataset (1).csv", encoding="utf-8", skiprows=1, header=None)
+raw = pd.read_csv("sport-fuel-ml/exercise_dataset.csv", encoding="utf-8", skiprows=1, header=None)
 
 # Spaltennamen zuweisen
 raw.columns = ["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"]
