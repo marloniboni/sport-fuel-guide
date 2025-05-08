@@ -26,19 +26,24 @@ for line in lines[1:]:
 
 raw = pd.DataFrame(data, columns=["Activity", "kcal_130lb", "kcal_155lb", "kcal_180lb", "kcal_205lb", "kcal_per_kg"])
 
-# 2. Synthetische Trainingsdaten erzeugen (kleinere Matrix für kleinere Datei)
+# 2. Synthetische Trainingsdaten erzeugen (mit Aktivitätsfaktor)
 activities = raw["Activity"]
 kcal_per_kg = raw["kcal_per_kg"]
 
 gewicht_list = list(range(55, 96, 10))   # 55, 65, 75, 85, 95
 dauer_list = list(range(30, 151, 20))    # 30, 50, ..., 150
 
-faktor = 2.2  # Verstärkung der kcal_per_kg-Werte für realistischere Vorhersage
-
 records = []
 for act, kcal_kg in zip(activities, kcal_per_kg):
     for g in gewicht_list:
         for d in dauer_list:
+            faktor = 1.0
+            if act == "Running":
+                faktor = 6.0
+            elif "Cycling" in act:
+                faktor = 4.5
+            elif "Swimming" in act:
+                faktor = 5.0
             kcal = d * g * kcal_kg / 60 * faktor
             records.append({
                 "Activity": act,
