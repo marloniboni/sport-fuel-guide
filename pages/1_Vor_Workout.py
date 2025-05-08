@@ -81,7 +81,7 @@ faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
 try:
     cal_burn = model.predict(X)[0]
 except Exception as e:
-    st.warning("⚠️ Fehler beim Vorhersagemodell. Formel wird verwendet.")
+    st.warning(f"⚠️ Fehler beim Vorhersagemodell: {e}. Formel wird verwendet.")
     cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
 
 
