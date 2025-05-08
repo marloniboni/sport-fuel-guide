@@ -7,6 +7,7 @@ import gpxpy
 import folium
 from streamlit_folium import st_folium
 import altair as alt
+import joblib
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page config
@@ -50,26 +51,24 @@ else:
 
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
-
-#Machine Learning Part
-import joblib
-
-# Modell laden (nur einmal, auch bei mehreren Runs)
+# ─────────────────────────────────────────────────────────────────────────────
+# Machine Learning Part
+# ─────────────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     return joblib.load("models/calorie_predictor.pkl")
 
 model = load_model()
 
-sportart_map = {
-    "Laufen": "Running",
+# Sportart auf ML-Activity mappen
+activity_map = {
+    "Laufen": "Running, 6 mph (10 min mile)",
     "Radfahren": "Cycling, 14-15.9 mph",
     "Schwimmen": "Swimming laps, moderate or vigorous"
 }
+activity = activity_map[sportart]
 
-activity = sportart_map[sportart]
-
-
+# Eingabe für Modell
 X = pd.DataFrame([{
     "Activity": activity,
     "Sportart": sportart,
@@ -77,28 +76,18 @@ X = pd.DataFrame([{
     "Dauer": dauer
 }])
 
-# Debug-Ausgabe direkt danach:
-st.text(f"Debug – Input fürs Modell:\n{X.iloc[0].to_dict()}")
-
-
-#Debug Zeile ob alle nötigen Spalten dabei sind.
-st.caption(f"🧪 Eingabe für ML-Modell: {X.columns.tolist()}")
-
-# Kalorienverbrauch vorhersagen, mit Fallback auf alte Formel
-faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
 try:
     cal_burn = model.predict(X)[0]
-    st.success(f"✅ Modell verwendet (Activity: {activity})")
+    st.success(f"✅ Modell verwendet: {activity} → {int(cal_burn)} kcal")
 except Exception as e:
-    st.warning(f"⚠️ Fehler beim Vorhersagemodell: {e}. Formel wird verwendet.")
+    st.warning(f"⚠️ Fehler beim Modell: {e}. Formel wird verwendet.")
+    faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
     cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
 
-
-#Flüssigkeitsverlust berechnen
 fluid_loss = 0.7 * (dauer / 60)
 
 st.session_state["planned_calories"] = cal_burn
-st.session_state["fluessigkeit"]      = fluid_loss
+st.session_state["fluessigkeit"] = fluid_loss
 
 st.subheader("Deine persönlichen Berechnungen")
 st.write(
@@ -126,6 +115,8 @@ for t in events:
 df_schedule = pd.DataFrame(schedule).set_index("Minute")
 st.subheader("Dein persönlicher Intake-Plan")
 st.table(df_schedule)
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2) Snack-Finder (USDA) mit Accumulativer Liste
