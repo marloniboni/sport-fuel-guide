@@ -10,6 +10,8 @@ fitparse
 altair
 requests-oauthlib
 gpxpy
+joblib
+
 
 # Optional: fixe Versionen für Reproduzierbarkeit
 # streamlit>=1.0.0
