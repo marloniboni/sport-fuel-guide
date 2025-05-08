@@ -33,11 +33,13 @@ kcal_per_kg = raw["kcal_per_kg"]
 gewicht_list = list(range(55, 96, 10))   # 55, 65, 75, 85, 95
 dauer_list = list(range(30, 151, 20))    # 30, 50, ..., 150
 
+faktor = 2.2  # Verstärkung der kcal_per_kg-Werte für realistischere Vorhersage
+
 records = []
 for act, kcal_kg in zip(activities, kcal_per_kg):
     for g in gewicht_list:
         for d in dauer_list:
-            kcal = d * g * kcal_kg / 60
+            kcal = d * g * kcal_kg / 60 * faktor
             records.append({
                 "Activity": act,
                 "Gewicht": g,
