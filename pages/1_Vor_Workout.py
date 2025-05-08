@@ -69,7 +69,7 @@ sportart_map = {
 
 activity = sportart_map[sportart]
 
-st.text(f"🧪 übergeben an Modell: {X.iloc[0].to_dict()}")
+st.text(f"Debug – Input fürs Modell: {X.iloc[0].to_dict()}")
 
 X = pd.DataFrame([{
     "Activity": activity,
