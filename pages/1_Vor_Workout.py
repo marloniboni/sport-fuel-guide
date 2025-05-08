@@ -17,60 +17,107 @@ st.set_page_config(page_title="Sport-Fuel Guide", layout="wide")
 # ─────────────────────────────────────────────────────────────────────────────
 # 1) Vor-Workout Planung
 # ─────────────────────────────────────────────────────────────────────────────
+if "gewicht" not in st.session_state:
+    st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
+    st.stop()
+gewicht = st.session_state.gewicht
 
-# Auswahl der Sportart
 sportart = st.selectbox("Sportart", ["Laufen", "Radfahren", "Schwimmen"])
+mode     = st.radio("Datenquelle wählen", ["GPX-Datei hochladen", "Manuelle Eingabe"])
 
-# Manuelle Eingabe oder GPX-Upload
-quelle = st.radio("Datenquelle wählen", ["Manuelle Eingabe", "GPX-Datei hochladen"])
-
-if quelle == "Manuelle Eingabe":
-    dauer = st.slider("Dauer (Min)", 15, 300, 60)
-    distanz = st.number_input("Distanz (km)", min_value=0.0, value=10.0)
+if mode == "GPX-Datei hochladen":
+    uploaded = st.file_uploader("GPX-Datei hochladen", type="gpx")
+    if not uploaded:
+        st.error("Bitte eine GPX-Datei hochladen.")
+        st.stop()
+    try:
+        gpx          = gpxpy.parse(uploaded.getvalue().decode())
+        duration_sec = gpx.get_duration() or 0
+        dauer        = duration_sec / 60
+        distanz      = (gpx.length_3d() or 0) / 1000
+        coords       = [
+            (pt.latitude, pt.longitude)
+            for tr in gpx.tracks
+            for seg in tr.segments
+            for pt in seg.points
+        ]
+    except Exception as e:
+        st.error(f"Fehler beim Parsen der GPX-Datei: {e}")
+        st.stop()
 else:
-    gpx_file = st.file_uploader("GPX-Datei hochladen", type="gpx")
-    # Placeholder (du hast das sicher schon eingebaut)
-    dauer = 60
-    distanz = 10.0
+    dauer   = st.slider("Dauer (Min)", 15, 300, 60)
+    distanz = st.number_input("Distanz (km)", 0.0, 100.0, 10.0)
+    coords  = []
 
-gewicht = 70  # Optional später als Eingabe machen
+st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
-# Aktivität definieren basierend auf Sportart
+# ─────────────────────────────────────────────────────────────────────────────
+# Machine Learning Part
+# ─────────────────────────────────────────────────────────────────────────────
+@st.cache_resource
+def load_model():
+    return joblib.load("models/calorie_predictor.pkl")
+
+model = load_model()
+
+# Sportart auf ML-Activity mappen
 activity_map = {
     "Laufen": "Running, 6 mph (10 min mile)",
-    "Radfahren": "Cycling, 12-13.9 mph, moderate",
-    "Schwimmen": "Swimming laps, freestyle, slow"
+    "Radfahren": "Cycling, 14-15.9 mph",
+    "Schwimmen": "Swimming laps, moderate or vigorous"
 }
 activity = activity_map[sportart]
 
-# 🔍 Eingabe anzeigen
-st.caption(f"Eingabe für ML-Modell: {{'Activity': '{activity}', 'Sportart': '{sportart}', 'Gewicht': {gewicht}, 'Dauer': {dauer}}}")
+# Eingabe für Modell
+X = pd.DataFrame([{
+    "Activity": activity,
+    "Sportart": sportart,
+    "Gewicht": gewicht,
+    "Dauer": dauer
+}])
 
-# 🧠 Modell laden und Vorhersage berechnen
 try:
-    model = joblib.load("models/calorie_predictor.pkl")
-    input_df = pd.DataFrame([{
-        "Activity": activity,
-        "Sportart": sportart,
-        "Gewicht": gewicht,
-        "Dauer": dauer
-    }])
-    kcal = model.predict(input_df)[0]
-    wasser = round(dauer * 0.012, 2)
-
-    # Ergebnisse anzeigen
-    st.subheader("Deine persönlichen Berechnungen")
-    st.write(f"Kalorienverbrauch: **{round(kcal)} kcal**")
-    st.write(f"Flüssigkeitsverlust: **{wasser} L**")
-
-    # Intake-Plan (einfaches Beispiel)
-    st.slider("Essen alle (Min)", 15, 60, 30)
-    st.slider("Trinken alle (Min)", 10, 30, 15)
-
+    cal_burn = model.predict(X)[0]
+    st.success(f"✅ Modell verwendet: {activity} → {int(cal_burn)} kcal")
 except Exception as e:
-    st.error(f"⚠️ Fehler bei der Vorhersage: {e}")
+    st.warning(f"⚠️ Fehler beim Modell: {e}. Formel wird verwendet.")
+    faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
+    cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
 
+fluid_loss = 0.7 * (dauer / 60)
 
+st.session_state["planned_calories"] = cal_burn
+st.session_state["fluessigkeit"] = fluid_loss
+
+st.subheader("Deine persönlichen Berechnungen")
+st.write(
+    f"Kalorienverbrauch: **{int(cal_burn)} kcal**  •  "
+    f"Flüssigkeitsverlust: **{fluid_loss:.2f} L**"
+)
+
+eat_int   = st.select_slider("Essen alle (Min)",   [15,20,30,45,60], 30)
+drink_int = st.select_slider("Trinken alle (Min)", [10,15,20,30],   15)
+
+events    = sorted(
+    set(range(eat_int,   int(dauer)+1, eat_int  )) |
+    set(range(drink_int, int(dauer)+1, drink_int))
+)
+req_cal   = cal_burn / len(events) if events else 0
+req_fluid = fluid_loss / len(events) if events else 0
+
+schedule = []
+for t in events:
+    row = {"Minute": t}
+    if t % eat_int   == 0: row["Essen (kcal)"] = round(req_cal,   1)
+    if t % drink_int == 0: row["Trinken (L)"]  = round(req_fluid, 3)
+    schedule.append(row)
+
+df_schedule = pd.DataFrame(schedule).set_index("Minute")
+st.subheader("Dein persönlicher Intake-Plan")
+st.table(df_schedule)
+
+# (Alles andere bleibt unverändert)
+# Snack-Finder, USDA-API, Map & GPX sind nicht verändert worden
 
 
 
