@@ -108,5 +108,5 @@ if st.button("Zur Vorbereitungsseite"):
         "grundumsatz": grundumsatz,
         "fluessigkeit": fluessigkeit
     })
-    # Korrektur: richtige Funktion verwenden
-    st.query_params(page="vor_workout")
+st.experimental_set_query_params(page="vor_workout")
+st.experimental_rerun()
