@@ -62,4 +62,4 @@ if center.button("Zur Vorbereitungsseite"):
         "grundumsatz":  grundumsatz,
         "fluessigkeit": fluessigkeit
     })
-    st.switch_page("pages/1_Vor_Workout.py")
+st.switch_page("pages/1_Vor_Workout.py")
