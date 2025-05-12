@@ -109,4 +109,4 @@ if st.button("Zur Vorbereitungsseite"):
         "fluessigkeit": fluessigkeit
     })
     # Korrektur: richtige Funktion verwenden
-    st.experimental_set_query_params(page="vor_workout")
+    st.query_params(page="vor_workout")
