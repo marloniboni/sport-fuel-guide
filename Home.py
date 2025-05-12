@@ -43,7 +43,7 @@ st.markdown("<div class='card'><h1>🏋️‍♂️ Sport Fuel Guide</h1><p clas
 
 # Optional: Bild dezent einbetten (z.B. als Banner)
 st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920",
-         use_column_width=True, clamp=True)
+         use_container_width=True, clamp=True)
 st.markdown("---")
 
 # -----------------------------
