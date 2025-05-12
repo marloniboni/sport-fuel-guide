@@ -10,10 +10,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS für Card-Design
 st.markdown("""
 <style>
-  /* Seite */
+  /* Seite-Hintergrund & Schrift */
   body {
     background-color: #F7F9FA;
     font-family: 'Segoe UI', sans-serif;
@@ -26,7 +25,7 @@ st.markdown("""
     box-shadow: 0 3px 8px rgba(0,0,0,0.04);
     margin-bottom: 1.2rem;
   }
-  /* Überschriften */
+  /* Überschriften in Cards */
   .card h1 {
     margin: 0;
     font-size: 2.2rem;
@@ -37,17 +36,29 @@ st.markdown("""
     color: #6B7A95;
     font-size: 1rem;
   }
+  /* Vergrößerte Buttons */
+  .stButton > button {
+    padding: 0.8rem 1.5rem !important;
+    font-size: 1.1rem !important;
+    border-radius: 8px;
+  }
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
 # Header
 # -----------------------------
-st.markdown("<div class='card'><h1>Sport Fuel Guide</h1><p>Plane deine Trainings- und Wettkampfernährung.</p></div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='card'><h1>Sport Fuel Guide</h1>"
+    "<p>Plane deine Trainings- und Wettkampfernährung.</p></div>",
+    unsafe_allow_html=True
+)
 
 # Banner-Bild
 st.image(
-    "https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920",
+    "https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/"
+    "58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-"
+    "Energy-Gel-riding-bike.jpg?w=1920",
     use_container_width=True,
     clamp=True
 )
@@ -60,10 +71,10 @@ st.markdown("---")
 st.markdown("<div class='card'><h2>Deine Daten</h2></div>", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    gewicht   = st.slider("Gewicht (kg)", 40, 150, 70)
-    alter     = st.slider("Alter (Jahre)", 12, 80, 25)
+    gewicht    = st.slider("Gewicht (kg)", 40, 150, 70)
+    alter      = st.slider("Alter (Jahre)", 12, 80, 25)
 with col2:
-    groesse   = st.slider("Körpergröße (cm)", 140, 210, 175)
+    groesse    = st.slider("Körpergröße (cm)", 140, 210, 175)
     geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich"])
 
 # -----------------------------
@@ -73,7 +84,6 @@ if geschlecht == "Männlich":
     grundumsatz = 66.47 + 13.7 * gewicht + 5.0 * groesse - 6.8 * alter
 else:
     grundumsatz = 655.1 + 9.6 * gewicht + 1.8 * groesse - 4.7 * alter
-
 fluessigkeit = gewicht * 0.035
 
 # -----------------------------
@@ -89,6 +99,7 @@ r2.metric("Flüssigkeitsbedarf (L/Tag)", f"{fluessigkeit:.2f}")
 # -----------------------------
 st.markdown("---")
 if st.button("Zur Vorbereitungsseite"):
+    # Session-State updaten
     st.session_state.update({
         "gewicht": gewicht,
         "groesse": groesse,
@@ -97,4 +108,5 @@ if st.button("Zur Vorbereitungsseite"):
         "grundumsatz": grundumsatz,
         "fluessigkeit": fluessigkeit
     })
-    sst.query_params(page="vor_workout")
+    # Korrektur: richtige Funktion verwenden
+    st.experimental_set_query_params(page="vor_workout")
