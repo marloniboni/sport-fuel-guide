@@ -87,7 +87,7 @@ except Exception as e:
 
 fluid_loss = 0.7 * (dauer / 60)
 
-st.session_state["planned_calories"] = cal_burn
+st.session_state["workout_calories"] = cal_burn
 st.session_state["fluessigkeit"] = fluid_loss
 
 st.subheader("Deine persönlichen Berechnungen")
@@ -268,3 +268,6 @@ if coords:
         file_name="route_intake.gpx",
         mime="application/gpx+xml"
     )
+st.markdown("---")
+if st.button("Zum Meal Plan"):
+    st.switch_page("pages/2_Meal_Plan.py")
