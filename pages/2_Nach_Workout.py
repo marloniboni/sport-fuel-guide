@@ -20,17 +20,21 @@ if grundumsatz is None or workout_calories is None:
     st.stop()
 total_cal = int(grundumsatz + workout_calories)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2) Spoonacular API-Key
-# ─────────────────────────────────────────────────────────────────────────────
-API_KEY = "3e9ef3731c664a8ea66b35267f051e27"
+# … dein Import-Block und session_state-Check …
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3) Tages-Meal-Plan von Spoonacular holen
-# ─────────────────────────────────────────────────────────────────────────────
+# Spoonacular-Meal-Plan anfragen
 plan_url = f"https://api.spoonacular.com/mealplanner/generate?timeFrame=day&targetCalories={total_cal}&apiKey={API_KEY}"
+plan     = requests.get(plan_url).json()
+meals    = plan.get("meals", [])
 
-)
+# Rezeptdetails holen
+def fetch_recipe_details(recipe_id: int) -> dict:
+    # EIN EINZIGER f-STRING – keine Klammer-Konkatenation
+    url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?includeNutrition=true&apiKey={API_KEY}"
+    return requests.get(url).json()
+
+# … danach dein Loop, UI-Code, etc. …
+
 plan = requests.get(plan_url).json()
 meals = plan.get("meals", [])  # Liste mit 3 Einträgen: breakfast, lunch, dinner
 
