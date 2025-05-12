@@ -3,7 +3,7 @@ import requests              #Wird für HTTP-Anfragen verwendet
 import urllib                #Wird zur URL-Verarbeitung verwendet
 
 
-# Seiteneinstellungen also Titel, Icon, Layoutbreite -> für ästhetische Ansicht
+# Seiteneinstellungen also Titel, Icon, Layoutbreite -> für eine ästhetische Ansicht
 st.set_page_config(
     page_title="Sport Fuel Guide",
     page_icon=None,
@@ -25,10 +25,10 @@ with st.expander("Gib deine Daten ein"):                                        
 # Grundumsatz & Flüssigkeitsbedarf Berechnungen
 if geschlecht == "Männlich":
     grundumsatz = 66.47 + (13.7 * gewicht) + (5.0 * groesse) - (6.8 * alter)    #Grundumsatz Kcal abhängig von Geschlecht, Gewicht, Alter und Grösse
-else:
+else:                                                                           #Berechnung nach Harris-Benedict Formel. Quelle: Wikipedia, https://de.wikipedia.org/wiki/Grundumsatz
     grundumsatz = 655.1 + (9.6 * gewicht) + (1.8 * groesse) - (4.7 * alter)
 
-fluessigkeit = gewicht * 0.035
+fluessigkeit = gewicht * 0.035                                                  #Berechnung Flüssigkeitsbedarf. Quelle: Migros, https://impuls.migros.ch/de/ernaehrung/nahrungsmittel/getraenke/wasser-trinken
 
 # Home-Page: nachdem Du die Slider/Selectboxen gelesen hast:
 st.session_state['gewicht']    = gewicht
