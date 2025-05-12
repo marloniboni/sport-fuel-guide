@@ -64,7 +64,7 @@ model = load_model()
 activity_map = {
     "Laufen": "Running, 6 mph (10 min mile)",
     "Radfahren": "Cycling, 14-15.9 mph",
-    "Schwimmen": "Swimming laps, moderate or vigorous"
+    "Schwimmen": "Swimming laps, freestyle, fast"
 }
 activity = activity_map[sportart]
 
