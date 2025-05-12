@@ -28,9 +28,8 @@ API_KEY = "3e9ef3731c664a8ea66b35267f051e27"
 # ─────────────────────────────────────────────────────────────────────────────
 # 3) Tages-Meal-Plan von Spoonacular holen
 # ─────────────────────────────────────────────────────────────────────────────
-plan_url = (
-    "https://api.spoonacular.com/mealplanner/generate"
-    f"?timeFrame=day&targetCalories={total_cal}&apiKey={API_KEY}"
+plan_url = f"https://api.spoonacular.com/mealplanner/generate?timeFrame=day&targetCalories={total_cal}&apiKey={API_KEY}"
+
 )
 plan = requests.get(plan_url).json()
 meals = plan.get("meals", [])  # Liste mit 3 Einträgen: breakfast, lunch, dinner
