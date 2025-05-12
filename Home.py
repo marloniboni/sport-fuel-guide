@@ -1,111 +1,50 @@
 import streamlit as st
+import requests
+import urllib
 
 # -----------------------------
-# Seiten-Config & Styles
+# Titel & Benutzer-Eingaben
 # -----------------------------
-st.set_page_config(
-    page_title="Sport Fuel Guide",
-    page_icon=None,
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.title("Sport Fuel Guide")
+st.markdown("Willkommen! Diese App hilft dir bei der Planung deiner Trainings- und Wettkampfernährung.")
+st.image("https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-Energy-Gel-riding-bike.jpg?w=1920", use_container_width=800)
 
-st.markdown("""
-<style>
-  /* Seite-Hintergrund & Schrift */
-  body {
-    background-color: #F7F9FA;
-    font-family: 'Segoe UI', sans-serif;
-  }
-  /* Card-Container */
-  .card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.2rem;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.04);
-    margin-bottom: 1.2rem;
-  }
-  /* Überschriften in Cards */
-  .card h1 {
-    margin: 0;
-    font-size: 2.2rem;
-    color: #2E3A59;
-  }
-  .card p {
-    margin: 0.2rem 0 0;
-    color: #6B7A95;
-    font-size: 1rem;
-  }
-  /* Vergrößerte Buttons */
-  .stButton > button {
-    padding: 0.8rem 1.5rem !important;
-    font-size: 1.1rem !important;
-    border-radius: 8px;
-  }
-</style>
-""", unsafe_allow_html=True)
+st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Geben Sie Ihre Daten ein👇</p>", unsafe_allow_html=True)
 
-# -----------------------------
-# Header
-# -----------------------------
-st.markdown(
-    "<div class='card'><h1>Sport Fuel Guide</h1>"
-    "<p>Plane deine Trainings- und Wettkampfernährung.</p></div>",
-    unsafe_allow_html=True
-)
+gewicht = st.slider("Gewicht (in kg)", min_value=40, max_value=150, value=70, step=1)
+groesse = st.slider("Körpergröße (in cm)", min_value=140, max_value=210, value=175, step=1)
+alter = st.slider("Alter (in Jahren)", min_value=12, max_value=80, value=25, step=1)
+geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich"])
 
-# Banner-Bild
-st.image(
-    "https://images.ctfassets.net/aytpbz9e0sd0/5n9hvfTT9hG7QxgveI7E3W/"
-    "58dfe5751c5aef4155e60f110fa6f1cd/Peter-Stetina-with-CLIF-SHOT-"
-    "Energy-Gel-riding-bike.jpg?w=1920",
-    use_container_width=True,
-    clamp=True
-)
-
-st.markdown("---")
-
-# -----------------------------
-# Nutzereingaben
-# -----------------------------
-st.markdown("<div class='card'><h2>Deine Daten</h2></div>", unsafe_allow_html=True)
-col1, col2 = st.columns(2)
-with col1:
-    gewicht    = st.slider("Gewicht (kg)", 40, 150, 70)
-    alter      = st.slider("Alter (Jahre)", 12, 80, 25)
-with col2:
-    groesse    = st.slider("Körpergröße (cm)", 140, 210, 175)
-    geschlecht = st.selectbox("Geschlecht", ["Männlich", "Weiblich"])
-
-# -----------------------------
-# Berechnungen
-# -----------------------------
+# Grundumsatz & Flüssigkeit
 if geschlecht == "Männlich":
-    grundumsatz = 66.47 + 13.7 * gewicht + 5.0 * groesse - 6.8 * alter
+    grundumsatz = 66.47 + (13.7 * gewicht) + (5.0 * groesse) - (6.8 * alter)
 else:
-    grundumsatz = 655.1 + 9.6 * gewicht + 1.8 * groesse - 4.7 * alter
+    grundumsatz = 655.1 + (9.6 * gewicht) + (1.8 * groesse) - (4.7 * alter)
+
 fluessigkeit = gewicht * 0.035
 
-# -----------------------------
-# Ergebnisse
-# -----------------------------
-st.markdown("<div class='card'><h2>Deine Werte</h2></div>", unsafe_allow_html=True)
-r1, r2 = st.columns(2)
-r1.metric("Grundumsatz (kcal/Tag)", f"{int(grundumsatz)}")
-r2.metric("Flüssigkeitsbedarf (L/Tag)", f"{fluessigkeit:.2f}")
+# Home-Page: nachdem Du die Slider/Selectboxen gelesen hast:
+st.session_state['gewicht']    = gewicht
+st.session_state['groesse']    = groesse
+st.session_state['alter']      = alter
+st.session_state['geschlecht'] = geschlecht
+st.session_state['grundumsatz'] = grundumsatz
+st.session_state['fluessigkeit'] = fluessigkeit
 
-# -----------------------------
-# Navigation zum Workout
-# -----------------------------
 st.markdown("---")
-if st.button("Zur Vorbereitungsseite"):
-    # Session-State updaten
-    st.session_state.update({
-        "gewicht": gewicht,
-        "groesse": groesse,
-        "alter": alter,
-        "geschlecht": geschlecht,
-        "grundumsatz": grundumsatz,
-        "fluessigkeit": fluessigkeit
-    })
-st.query_params.page = "vor_workout"
+st.subheader("Deine berechneten Werte:")
+st.image("https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img/https://eatmyride.com/wp-content/uploads/2023/01/garmin_balancer_new-1.png", use_container_width=25)
+st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Mit deinen Zahlen hört das Rätselraten auf </p>", unsafe_allow_html=True)
+st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
+st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
+
+st.session_state.gewicht = gewicht
+st.session_state.grundumsatz = grundumsatz
+st.session_state.fluessigkeit = fluessigkeit
+
+# Navigation zur Vorbereitungsseite
+st.markdown("---")
+st.markdown("### Hast du ein Workout geplant?")
+if st.button("➡️ Ja, gehe zur Vorbereitungsseite"):
+    st.switch_page("pages/1_Vor_Workout.py")
