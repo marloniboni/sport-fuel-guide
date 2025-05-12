@@ -1,129 +1,53 @@
-# pages/2_Nach_Workout.py
-# -*- coding: utf-8 -*-
-
 import streamlit as st
-import pandas as pd
-import numpy as np
-from fitparse import FitFile
-import matplotlib.pyplot as plt
+import requests
 
-# --------------------------------------------
-# Nach-Workout-Auswertung: FIT-Daten & Vergleiche
-# --------------------------------------------
+# Seiten-Config
+st.set_page_config(
+    page_title="Meal Plan",
+    page_icon=None,
+    layout="wide"
+)
 
-def parse_fit(fitfile):
-    """
-    Liest .fit-Datei ein und extrahiert:
-      - DataFrame aller Records
-      - Basis-Metriken: Distanz, Dauer, Herzfrequenz (avg/max)
-    """
-    fit = FitFile(fitfile)
-    records, session = [], {}
-    for msg in fit.get_messages():
-        if msg.name == 'record':
-            records.append({f.name: f.value for f in msg.fields})
-        elif msg.name == 'session':
-            session.update({f.name: f.value for f in msg.fields})
-    if not records:
-        st.error('Keine Daten im FIT-File gefunden.')
-        return {}
+# 1. Session-State-Werte laden
+#    Aus Home.py: st.session_state["grundumsatz"]
+#    Aus Vor-Workout.py: st.session_state["workout_calories"]
+grundumsatz       = st.session_state.get("grundumsatz")
+workout_calories  = st.session_state.get("workout_calories")
 
-    df = pd.DataFrame(records)
-    dist = session.get('total_distance', df.get('distance', pd.Series()).max())
-    t_s = session.get(
-        'total_timer_time',
-        (df['timestamp'].max() - df['timestamp'].min()).total_seconds()
-        if 'timestamp' in df else 0
-    )
-    avg_hr = df['heart_rate'].mean() if 'heart_rate' in df else None
-    max_hr = df['heart_rate'].max() if 'heart_rate' in df else None
-    return {'df': df, 'distance_m': dist, 'time_s': t_s, 'avg_hr': avg_hr, 'max_hr': max_hr}
+if grundumsatz is None or workout_calories is None:
+    st.error("Grundumsatz oder Workout-Kalorien fehlen – bitte zuerst Home und Vor-Workout durchlaufen.")
+    st.stop()
 
+total_cal = grundumsatz + workout_calories
 
-def calc_calories_keytel(hr, weight, age, gender, duration_min):
-    """Keytel-Formel (kcal/min)"""
-    if None in (hr, weight, age, gender):
-        return None
-    if gender == 'Männlich':
-        a,b,c,d = 0.6309,0.1988,0.2017,-55.0969
-    else:
-        a,b,c,d = 0.4472,0.1263,0.0740,-20.4022
-    e_dot = (a*hr + b*weight + c*age + d) / 4.184
-    return e_dot * duration_min
+# 2. Funktion, um eine zufällige Mahlzeit zu holen
+def get_random_meal():
+    resp = requests.get("https://www.themealdb.com/api/json/v1/1/random.php")
+    meals = resp.json().get("meals", [])
+    return meals[0] if meals else None
 
+# 3. UI: Überschrift und Tabs
+st.header(f"Dein Meal Plan – Gesamtbedarf: {int(total_cal)} kcal")
 
-def calc_fluid_loss(calories, hours):
-    """Flüssigkeitsverlust (L) ~1.38e-3 * kcal/h"""
-    if calories is None or hours<=0:
-        return None
-    return (1.38e-3 * (calories/hours)) * hours
+tabs = st.tabs(["Frühstück", "Mittagessen", "Abendessen"])
+for name, tab in zip(["Frühstück", "Mittagessen", "Abendessen"], tabs):
+    with tab:
+        meal = get_random_meal()
+        if not meal:
+            st.warning("Keine Mahlzeit gefunden.")
+            continue
 
+        st.subheader(meal["strMeal"])
+        st.image(meal["strMealThumb"], use_container_width=True)
+        st.markdown(f"**Kategorie:** {meal['strCategory']}  •  **Herkunft:** {meal['strArea']}")
+        st.markdown("**Anleitung:**")
+        st.write(meal["strInstructions"])
 
-def main():
-    st.title('Nach-Workout-Analyse')
-    st.write('Nur .fit hochladen – Rest kommt aus vorherigem Plan')
-
-    # Prüfen Session-State
-    keys = ['gewicht','alter','groesse','geschlecht','planned_calories','fluessigkeit']
-    missing = [k for k in keys if k not in st.session_state]
-    if missing:
-        st.error('Bitte zuerst Profil & Vor-Workout-Plan auf den entsprechenden Seiten ausfüllen: ' + ', '.join(missing))
-        return
-
-    # Session-Werte
-    weight = st.session_state['gewicht']
-    age = st.session_state['alter']
-    height = st.session_state['groesse']
-    gender = st.session_state['geschlecht']
-    planned_cal = st.session_state['planned_calories']
-    planned_fluid = st.session_state['fluessigkeit']
-
-    # FIT-Upload
-    uploaded = st.file_uploader('Deine .fit-Datei auswählen', type='fit')
-    if not uploaded:
-        st.info('Bitte .fit-Datei hochladen')
-        return
-
-    data = parse_fit(uploaded)
-    if not data:
-        return
-    t_min = data['time_s']/60
-    t_h = data['time_s']/3600
-
-    # Anzeige FIT-Werte
-    st.subheader('FIT-Kennzahlen')
-    cols = st.columns(3)
-    cols[0].metric('Distanz (km)', f"{data['distance_m']/1000:.2f}")
-    cols[1].metric('Dauer (min)', f"{t_min:.1f}")
-    cols[2].metric('Ø-Herzfr. (bpm)', f"{data['avg_hr']:.0f}" if data['avg_hr'] else 'n/a')
-
-    st.subheader('Berechnete Ist-Werte')
-    actual_cal = calc_calories_keytel(data['avg_hr'], weight, age, gender, t_min)
-    actual_fluid = calc_fluid_loss(actual_cal, t_h)
-
-    # Differenzen
-    dcal = (actual_cal or 0) - planned_cal
-    dflu = (actual_fluid or 0) - planned_fluid
-
-    # Donut-Charts nebeneinander
-    st.subheader('Vergleich Ist vs. Plan')
-    fig, axes = plt.subplots(1,2,figsize=(10,4))
-    # Kalorien
-    axes[0].pie([actual_cal, planned_cal], labels=['Ist','Plan'],
-                autopct=lambda pct: f"{(pct/100)*(actual_cal+planned_cal):.0f} kcal",
-                startangle=90, wedgeprops={'width':0.4})
-    axes[0].set_title(f'Δ {dcal:+.0f} kcal')
-    axes[0].set(aspect='equal')
-    # Flüssigkeit
-    axes[1].pie([actual_fluid, planned_fluid], labels=['Ist','Empf.'],
-                autopct=lambda pct: f"{(pct/100)*(actual_fluid+planned_fluid):.2f} L",
-                startangle=90, wedgeprops={'width':0.4})
-    axes[1].set_title(f'Δ {dflu:+.2f} L')
-    axes[1].set(aspect='equal')
-    st.pyplot(fig)
-
-    st.markdown('---')
-    st.info('Profil & Plan: Home- und Vor-Workout-Seite; hier nur .fit ergänzen.')
-
-if __name__ == '__main__':
-    main()
+        # Zutatenliste
+        ingredients = []
+        for i in range(1, 21):
+            ing = meal.get(f"strIngredient{i}")
+            meas = meal.get(f"strMeasure{i}")
+            if ing and ing.strip():
+                ingredients.append(f"- {ing.strip()}: {meas.strip()}")
+        st.markdown("**Zutaten:**\n" + "\n".join(ingredients))
