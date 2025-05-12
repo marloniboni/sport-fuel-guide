@@ -97,4 +97,4 @@ if st.button("Zur Vorbereitungsseite"):
         "grundumsatz": grundumsatz,
         "fluessigkeit": fluessigkeit
     })
-    st.experimental_set_query_params(page="vor_workout")
+    sst.query_params(page="vor_workout")
