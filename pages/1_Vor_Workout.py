@@ -74,6 +74,7 @@ X = pd.DataFrame([{
     "Sportart": sportart,
     "Gewicht": gewicht,
     "Dauer": dauer
+    "Distanz": distanz
 }])
 
 try:
