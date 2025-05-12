@@ -109,4 +109,3 @@ if st.button("Zur Vorbereitungsseite"):
         "fluessigkeit": fluessigkeit
     })
 st.query_params.page = "vor_workout"
-    st.rerun()
