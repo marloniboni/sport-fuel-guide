@@ -39,13 +39,13 @@ for act, kcal_kg in zip(activities, kcal_per_kg):
         for d in dauer_list:
             # Aktivitätsbasierter Verstärkungsfaktor
             if "Running" in act:
-                faktor = 5.0
+                faktor = 4.3
                 distanz = d * 0.1  # grob 10 km/h
             elif "Cycling" in act:
                 faktor = 4.5
                 distanz = d * 0.25  # grob 15 km/h
             elif "Swimming" in act:
-                faktor = 7.0
+                faktor = 10.0
                 distanz = d * 0.05  # grob 3 km/h
             else:
                 faktor = 1.0
