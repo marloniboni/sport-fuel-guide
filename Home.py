@@ -59,7 +59,7 @@ st.session_state.fluessigkeit = fluessigkeit
 st.markdown("---")
 st.markdown("### Hast du ein Workout geplant?")
 
-if left.button("Zur Vorbereitungsseite"): #Button zur Navigation zur Vor Workout Seite
+left.button("Zur Vorbereitungsseite"): #Button zur Navigation zur Vor Workout Seite
     # Session-State updaten (wie gehabt)
     st.session_state.update({                #Speicherung der Daten in Session-Satate sicherstellen.
         "gewicht":      gewicht,
