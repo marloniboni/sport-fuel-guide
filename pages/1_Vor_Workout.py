@@ -148,7 +148,7 @@ def get_food_details(fid):
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-st.subheader("🍌 Snack-Empfehlungen via USDA")
+st.subheader("Snack-Empfehlungen") #via https://www.usda.gov
 snack_query = st.text_input("Snack suchen (Schlagwort)", "")
 
 if snack_query:
@@ -172,8 +172,19 @@ if snack_query:
                     continue
                 if k:
                     nut[k] = v or 0
+# ← IMAGE EXTRACTION & DISPLAY BLOCK
+img_url = None
+# USDA FDC v1: newer responses include an "images" list
+if details.get("images"):
+    img_url = details["images"][0].get("imageUrl")
+# Legacy field fallback
+elif details.get("photo"):
+    img_url = details["photo"].get("thumb")
+# Render the image if available
+if img_url:
+    st.image(img_url, width=100)
 
-            # grams per 100g
+    # grams per 100g
             cal100  = nut.get("Energy") or nut.get("Calories") or 0
             carb100 = nut.get("Carbohydrate, by difference",0)
 
