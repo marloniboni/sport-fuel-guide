@@ -9,15 +9,13 @@ from streamlit_folium import st_folium
 import altair as alt
 import joblib
 
-# ----------------------------------------
 # Seitenkonfiguration
-# ----------------------------------------
 # Legt den Titel und Layout der Streamlit-App fest
 st.set_page_config(page_title="Sport-Fuel Guide", layout="wide")
 
-# ----------------------------------------
-# 1a) Vor-Workout Planung
-# ----------------------------------------
+# Vor-Workout Planung
+# ----------------------------
+
 # Prüft, ob das Körpergewicht im Session-State gespeichert ist
 # Wenn nicht, warnt der Nutzer und stoppt die Ausführung
 if "gewicht" not in st.session_state:
@@ -52,6 +50,7 @@ if mode == "GPX-Datei hochladen":
     except Exception as e:
         st.error(f"Fehler beim Parsen der GPX-Datei: {e}")
         st.stop()
+        
 # Manuelle Eingabe von Dauer und Distanz
 else:
     dauer   = st.slider("Dauer (Min)", 15, 300, 60)
@@ -61,9 +60,8 @@ else:
 # Ausgabe der eingegebenen Werte
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
-# ----------------------------------------
-# Machine Learning Teil: Kalorienverbrauch vorhersagen
-# ----------------------------------------
+#Machine Learning Teil
+# -----------
 @st.cache_resource
 # Lädt das vortrainierte Modell nur einmal und cached es
 def load_model():
@@ -111,9 +109,8 @@ st.write(
     f"Flüssigkeitsverlust: **{fluid_loss:.2f} L**"
 )
 
-# ----------------------------------------
-# 1b) Intake-Plan erstellen: Essen und Trinken
-# ----------------------------------------
+# Intake-Plan erstellen: Essen und Trinken
+# ---------------------
 # Intervall-Auswahl für Essen und Trinken
 eat_int   = st.select_slider("Essen alle (Min)",   [15,20,30,45,60], 30)
 drink_int = st.select_slider("Trinken alle (Min)", [10,15,20,30],   15)
@@ -123,6 +120,7 @@ events    = sorted(
     set(range(eat_int,   int(dauer)+1, eat_int  )) |
     set(range(drink_int, int(dauer)+1, drink_int))
 )
+
 # Berechnet benötigte Kalorien und Flüssigkeit pro Event
 req_cal   = cal_burn / len(events) if events else 0
 req_fluid = fluid_loss / len(events) if events else 0
@@ -135,17 +133,17 @@ for t in events:
     if t % drink_int == 0: row["Trinken (L)"]  = round(req_fluid, 3)
     schedule.append(row)
 
-df_schedule = pd.DataFrame(schedule).set_index("Minute")
+df_schedule = pd.DataFrame(schedule).set_index("Minute")  
 st.subheader("Dein persönlicher Intake-Plan")
 st.table(df_schedule)
 
-# ----------------------------------------
-# 2) Snack-Finder via USDA API
-# ----------------------------------------
-FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
+
+# Snack-Finder via USDA API
+# -------
+FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"        #Eingabe der API. Quelle: U.S. Department of Agriculture, https://fdc.nal.usda.gov/api-guide
 
 @st.cache_data
-# Sucht Snacks anhand eines Stichworts und limit
+# Sucht Snacks anhand eines Stichworts und limit Quelle: U.S. Department of Agriculture, https://fdc.nal.usda.gov/api-guide
 def search_foods(q, limit=5):
     r = requests.get(
         "https://api.nal.usda.gov/fdc/v1/foods/search",
@@ -155,7 +153,7 @@ def search_foods(q, limit=5):
     return r.json().get("foods", [])
 
 @st.cache_data
-# Holt detaillierte Nährstoffdaten für ein Food-Item
+# Holt detaillierte Nährstoffdaten für ein Food-Item Quelle: U.S. Department of Agriculture, https://fdc.nal.usda.gov/api-guide
 def get_food_details(fid):
     r = requests.get(
         f"https://api.nal.usda.gov/fdc/v1/food/{fid}",
@@ -168,7 +166,7 @@ def get_food_details(fid):
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-st.subheader("🍌 Snack-Empfehlungen via USDA")
+st.subheader("Snack-Empfehlungen via USDA")
 snack_query = st.text_input("Snack suchen (Schlagwort)", "")
 
 if snack_query:
