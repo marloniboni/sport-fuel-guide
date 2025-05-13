@@ -2,10 +2,10 @@ import os
 import streamlit as st
 import requests
 
-# ─── 0) Page config ────────────────────────────────────────────────────────────
+# ─── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Meal Plan", layout="wide")
 
-# ─── 1) Edamam v2 Credentials ─────────────────────────────────────────────────
+# ─── Edamam v2 Credentials ─────────────────────────────────────────────────────
 APP_ID   = os.getenv("EDAMAM_APP_ID", "")
 APP_KEY  = os.getenv("EDAMAM_APP_KEY", "")
 USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "")
@@ -15,51 +15,50 @@ if not (APP_ID and APP_KEY and USER_ID):
 
 V2_URL = "https://api.edamam.com/api/recipes/v2"
 
-# ─── 2) Sidebar: Preferences ──────────────────────────────────────────────────
+# ─── Sidebar: Preferences ──────────────────────────────────────────────────────
 st.sidebar.markdown("## Allergien & Ernährungspräferenzen")
-diet_options = ["balanced", "high-fiber", "high-protein", "low-carb", "low-fat", "low-sodium"]
-health_options = [
+diet_opts = ["balanced","high-fiber","high-protein","low-carb","low-fat","low-sodium"]
+health_opts = [
     "alcohol-free","celery-free","crustacean-free","dairy-free","egg-free",
     "fish-free","fodmap-free","gluten-free","keto-friendly","kosher",
     "low-sugar","lupine-free","Mediterranean","paleo","peanut-free",
     "pescatarian","pork-free","vegetarian","vegan","wheat-free"
 ]
-selected_diets  = st.sidebar.multiselect("Diet labels", diet_options)
-selected_health = st.sidebar.multiselect("Health labels", health_options)
+sel_diets  = st.sidebar.multiselect("Diet labels", diet_opts)
+sel_health = st.sidebar.multiselect("Health labels", health_opts)
 
-# ─── 3) DishType mapping per meal ─────────────────────────────────────────────
+# ─── DishType mapping (nur sinnvolle Gerichte) ─────────────────────────────────
 DISH_TYPES = {
-    "Breakfast": ["Cereals", "Pancake", "Bread"],
-    "Lunch":     ["Main course", "Salad", "Sandwiches", "Soup"],
-    "Dinner":    ["Main course", "Side dish", "Soup"]
+    "Breakfast": ["Cereals","Pancake","Bread","Preps"],
+    "Lunch":     ["Main course","Salad","Sandwiches","Soup","Side dish"],
+    "Dinner":    ["Main course","Side dish","Soup"]
 }
 
-# ─── 4) Helper: Fetch recipes ─────────────────────────────────────────────────
+# ─── Helper: Rezepte holen & filtern ───────────────────────────────────────────
 @st.cache_data(ttl=3600)
-def fetch_recipes(meal_type, diets, healths, max_results=3):
-    params = {
-        "type":     "public",
-        "app_id":   APP_ID,
-        "app_key":  APP_KEY,
-        "mealType": meal_type,
-    }
-    # apply diet & health filters
-    for d in diets:
-        params.setdefault("diet", []).append(d)
-    for h in healths:
-        params.setdefault("health", []).append(h)
-    # apply dishType filter to avoid beverages
-    for dt in DISH_TYPES.get(meal_type, []):
-        params.setdefault("dishType", []).append(dt)
-    # only needed fields
-    params["field"] = ["label","image","yield","ingredientLines","calories","totalNutrients"]
+def fetch_and_filter(meal_type, diets, healths, max_results=5):
+    params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
+    for d in diets:  params.setdefault("diet", []).append(d)
+    for h in healths: params.setdefault("health", []).append(h)
+    for dt in DISH_TYPES.get(meal_type,[]): params.setdefault("dishType", []).append(dt)
+    params["field"] = ["label","image","yield","ingredientLines","calories","totalNutrients","instructions"]
     headers = {"Edamam-Account-User": USER_ID}
+
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
-    hits = r.json().get("hits", [])
-    return [h["recipe"] for h in hits][:max_results]
+    hits = [h["recipe"] for h in r.json().get("hits",[])]
+    # Filter: nur komplexe Rezepte
+    filtered = []
+    for recipe in hits:
+        lines = recipe.get("ingredientLines",[])
+        instr = recipe.get("instructions","") or ""
+        if len(lines) >= 3 and len(instr) >= 30:
+            filtered.append(recipe)
+        if len(filtered) >= max_results:
+            break
+    return filtered
 
-# ─── 5) Check session state ───────────────────────────────────────────────────
+# ─── Session-State prüfen ─────────────────────────────────────────────────────
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
@@ -70,53 +69,50 @@ per_meal  = total_cal // 3
 st.markdown("---")
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 
-# ─── 6) Display three columns ─────────────────────────────────────────────────
+# ─── Anzeige in 3 Spalten mit Slider ──────────────────────────────────────────
 cols  = st.columns(3)
-meals = [("Frühstück","Breakfast"), ("Mittagessen","Lunch"), ("Abendessen","Dinner")]
+meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
-for (label, meal_type), col in zip(meals, cols):
+for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
-        try:
-            recipes = fetch_recipes(meal_type, selected_diets, selected_health)
-        except requests.HTTPError as e:
-            st.error(f"Fehler beim Laden der Rezepte: {e}")
-            continue
-
+        recipes = fetch_and_filter(mtype, sel_diets, sel_health)
         if not recipes:
-            st.info("Keine Rezepte gefunden mit diesen Präferenzen.")
+            st.info("Keine passenden Rezepte gefunden.")
             continue
 
-        for r in recipes:
-            title      = r["label"]
-            image      = r.get("image")
-            total_cals = r.get("calories", 0)
-            yield_n    = r.get("yield", 1) or 1
-            per_serv   = total_cals / yield_n
-            portions   = per_meal / per_serv if per_serv>0 else None
+        # Slider für Index
+        idx = st.slider("Rezept auswählen", 1, len(recipes), key=mtype)
+        r   = recipes[idx-1]
 
-            st.subheader(title)
-            if image:
-                st.image(image, use_container_width=True)
+        # Anzeige
+        title     = r["label"]
+        image     = r.get("image")
+        total_c   = r.get("calories",0)
+        yield_n   = r.get("yield",1) or 1
+        per_serv  = total_c/ yield_n
+        portions  = per_meal/ per_serv if per_serv>0 else None
 
-            # Portionenberechnung
-            if portions:
-                st.markdown(f"**Portionen:** {portions:.1f} à {per_serv:.0f} kcal = {per_meal} kcal")
-            else:
-                st.markdown(f"**Kalorien gesamt:** {total_cals} kcal")
+        st.markdown(f"### {title}")
+        if image:
+            st.image(image, use_container_width=True)
 
-            # Makros pro Portion
-            nutrients = r.get("totalNutrients", {})
-            prot = nutrients.get("PROCNT",{}).get("quantity",0) / yield_n
-            fat  = nutrients.get("FAT",{}).get("quantity",0) / yield_n
-            carb = nutrients.get("CHOCDF",{}).get("quantity",0) / yield_n
-            st.markdown(f"**Makro pro Portion:** {prot:.0f} g P • {fat:.0f} g F • {carb:.0f} g KH")
+        if portions:
+            st.markdown(f"**Portionen:** {portions:.1f} × {per_serv:.0f} kcal = {per_meal} kcal")
+        else:
+            st.markdown(f"**Kalorien gesamt:** {total_c} kcal")
 
-            # Zutaten
-            st.markdown("**Zutaten:**")
-            for line in r.get("ingredientLines", [])[:5]:
+        # Makros
+        nut = r.get("totalNutrients",{})
+        prot = nut.get("PROCNT",{}).get("quantity",0)/yield_n
+        fat  = nut.get("FAT",{}).get("quantity",0)/yield_n
+        carb = nut.get("CHOCDF",{}).get("quantity",0)/yield_n
+        st.markdown(f"**Makro pro Portion:** {prot:.0f} g P • {fat:.0f} g F • {carb:.0f} g KH")
+
+        # Zutaten & Anleitung in ausklappbaren Bereichen
+        with st.expander("Zutaten"):
+            for line in r.get("ingredientLines",[]):
                 st.write(f"- {line}")
-            if len(r.get("ingredientLines", [])) > 5:
-                st.write("…")
-
-            st.markdown("---")
+        with st.expander("Anleitung"):
+            for step in r.get("instructions",[]):
+                st.write(f"- {step}")
