@@ -101,47 +101,47 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
         st.markdown(f"Kalorien gesamt: {total_c} kcal")
 
     # -
-    # Makronährstoff-Chart
+    # Makronährstoff-Chart aus Edamam API
     # -
     nut = r.get("totalNutrients", {})
     prot = nut.get("PROCNT", {}).get("quantity", 0) / yield_n
     fat  = nut.get("FAT", {}).get("quantity", 0) / yield_n
     carb = nut.get("CHOCDF", {}).get("quantity", 0) / yield_n
 
-    # Erstelle Balkendiagramm mit Matplotlib
+    # Erstellt Balkendiagramm mit Matplotlib, um nicht nur Altair zu nutzen (https://matplotlib.org)
     fig, ax = plt.subplots()
     ax.bar(["Protein","Fat","Carbs"], [prot, fat, carb])
     ax.set_ylabel("g pro Portion")
     ax.set_title("Makros")
     st.pyplot(fig)
 
-    # ----------------------------------------
-    # Zutaten und Anleitung in Expandern
-    # ----------------------------------------
+    # -
+    # Zutaten und Rezepteanleitugn damit User weiss wie Gericht zubereiten
+    # -
     with st.expander("Zutaten"):
         for line in r.get("ingredientLines", []):
             st.write(f"- {line}")
-    with st.expander("Anleitung"):
+    with st.expander("Zutaten"): #gibt genaue Auflistung welche Zutaten benötigt werden
         instr = r.get("instructions") or []
         instr_list = instr if isinstance(instr, list) else [instr]
         for step in instr_list:
             st.write(f"- {step}")
 
-# ----------------------------------------
-# Hauptlayout: 3 Spalten für Frühstück, Mittag, Abend
-# ----------------------------------------
+# -
+# 3 Spalten für Frühstück, Mittag- + Abendessen
+# -
 cols = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
-# Für jede Mahlzeit: Überschrift, Rezepte laden, Slider und Karte rendern
+# Für jede Mahlzeit: Überschrift, Rezepte laden, Slider um mehrere Rezepte anzuzeigen und Visualisierung darzustellen
 for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
-        recs = fetch_recipes(mtype, sel_diets, sel_health)
+        recs = fetch_recipes(mtype, sel_diets, sel_health) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
         if not recs:
             st.info("Keine passenden Rezepte gefunden.")
             continue
-        # Slider zur Auswahl eines der geladenen Rezepte
+        # Slider zur Auswahl der geladenen Rezepte, damit man sich was aussuchen kann, um grössere Variabilität zu haben
         idx = st.slider("Wähle Rezept", 1, len(recs), key=f"slider_{mtype}")
         r = recs[idx-1]
         render_recipe_card(r, mtype)
