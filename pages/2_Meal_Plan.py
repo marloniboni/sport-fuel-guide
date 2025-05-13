@@ -3,7 +3,6 @@ import streamlit as st #lädt Stramlitrahmen und gibt ihm st als alias, damit Ko
 import requests #wird benötigt um requests an APIs zu senden und Antworten zu verarbeiten
 import matplotlib.pyplot as plt #Importiert marplotlibs Plot-API unter alias plt, um Grafiken zu erzeugen und in Stremlit einzubinden
 import random
-import time
 
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
@@ -40,6 +39,7 @@ DISH_TYPES = {
 # -
 # Fetch-Hilfsfunktion: Rezepte aus Edamam laden
 # -
+@st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
 def fetch_recipes(meal_type, diets, healths, max_results=5): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
     hits = [h["recipe"] for h in r.json().get("hits",[])]
 +   random.shuffle(hits)           # ← mischt nur die bereits gefilterten Rezepte
