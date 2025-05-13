@@ -88,16 +88,16 @@ X = pd.DataFrame([{
     "Distanz": distanz
 }])
 
-# Versucht die Vorhersage mit dem Modell, ansonsten Fall-Back-Formel
+# Versucht die Vorhersage mit dem Modell, ansonsten Fall-Back-Formel. Die nächten 7 Codezeilen erstellt mit Hilfe von: OpenAI. (2025). ChatGPT 4O (Version vom 29.04.2025) [Large language model]. https://chat.openai.com/chat.
 try:
     cal_burn = model.predict(X)[0]
-    st.success(f"✅ Modell verwendet: {activity} → {int(cal_burn)} kcal")
+    st.success(f"✅ Modell verwendet: → {int(cal_burn)} kcal")
 except Exception as e:
     st.warning(f"⚠️ Fehler beim Modell: {e}. Formel wird verwendet.")
     faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
     cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
 
-# Berechnet den geschätzten Flüssigkeitsverlust (L pro Stunde)
+# Berechnet den geschätzten Flüssigkeitsverlust (L pro Stunde). Quelle: Hirsladen: https://www.hirslanden.ch/de/hirslandenblog/medizin/trinken-beim-sport.html#:~:text=Hier%20sollten%20Sie%20auch%20w%C3%A4hrend,Schweissverlustes%20an%20Fl%C3%BCssigkeit%20wieder%20aufzunehmen.&text=Das%20American%20College%20of%20Sports,Merke:
 fluid_loss = 0.7 * (dauer / 60)
 
 # Speichert die Werte im Session-State für spätere Nutzung
