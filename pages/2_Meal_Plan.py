@@ -2,8 +2,7 @@ import os #bindet Python "os"-Modul ein, mit dem wir das Betriebssystem-Funktion
 import streamlit as st #lädt Stramlitrahmen und gibt ihm st als alias, damit Komponenten einfach auf App platziert werden können
 import requests #wird benötigt um requests an APIs zu senden und Antworten zu verarbeiten
 import matplotlib.pyplot as plt #Importiert marplotlibs Plot-API unter alias plt, um Grafiken zu erzeugen und in Stremlit einzubinden
-import random
-import time
+import random, time
 
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
@@ -144,13 +143,19 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
 cols = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
-seed = int(time.time() // 10)   # alle 10 Sekunden neuer Seed
+#Für jeden Mahlzeit Typen einen eigenen Seed legen, wenn noch keiner existiert
+for _, mtype in meals:
+    seed_key = f"seed_{mtype}"
+    if seed_key not in st.session_state:
+        # z.B. aus timestamp + Zufall, bleibt stabil bis zum Neuladen
+        st.session_state[seed_key] = int(time.time()*1000) + random.randint(0, 999)
 
 # Für jede Mahlzeit: Überschrift, Rezepte laden, Slider um mehrere Rezepte anzuzeigen und Visualisierung darzustellen
 for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
-        recs = fetch_recipes(mtype, sel_diets, sel_health, seed=seed) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
+        seed_key = f"seed_{mtype}" # holt den individuellen Seed
+        recs = fetch_recipes(mtype, sel_diets, sel_health,seed=st.session_state[seed_key]) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
         if not recs:
             st.info("Keine passenden Rezepte gefunden.")
             continue
