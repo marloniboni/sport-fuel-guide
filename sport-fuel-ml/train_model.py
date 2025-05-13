@@ -11,7 +11,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
-#CSV einlesen und verarbeiten
+#CSV einlesen und verarbeiten. CSV-Datei von Fernando Fernandez, kaggle, https://www.kaggle.com/datasets/fmendes/fmendesdat263xdemos
 with open("sport-fuel-ml/exercise_dataset.csv", encoding="utf-8") as f:    #Lesen der Datei Zeile für Zeile und Trennung der Daten durch Komma.
     lines = f.readlines()
 
