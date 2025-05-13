@@ -1,123 +1,63 @@
-import streamlit as st
-import requests
-import urllib.parse
+import os
 import random
+import streamlit as st
+from requests_oauthlib import OAuth1Session
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Seiten-Config
+# FatSecret Credentials (bitte in Env-Variablen setzen!)
 # ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Meal Plan",
-    page_icon=None,
-    layout="wide"
+FS_CONSUMER_KEY    = os.getenv("FS_CONSUMER_KEY", "9ced8a2df62549a594700464259c95de")
+FS_CONSUMER_SECRET = os.getenv("FS_CONSUMER_SECRET", "dein_consumer_secret")
+
+# FatSecret Endpunkte
+FS_API_BASE = "https://platform.fatsecret.com/rest/server.api"
+
+# OAuth1 Session initialisieren
+fs = OAuth1Session(
+    client_key=FS_CONSUMER_KEY,
+    client_secret=FS_CONSUMER_SECRET
 )
 
+def fatsecret_request(method: str, params: dict) -> dict:
+    """Allgemeine FatSecret-Request (GET) mit OAuth1-Signatur."""
+    base_params = {
+        "method": method,
+        "format": "json",
+    }
+    r = fs.get(FS_API_BASE, params={**base_params, **params})
+    r.raise_for_status()
+    return r.json()
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Session-State-Werte laden
+# Streamlit Setup
 # ─────────────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Meal Plan mit FatSecret", layout="wide")
 grundumsatz      = st.session_state.get("grundumsatz")
 workout_calories = st.session_state.get("workout_calories")
-
 if grundumsatz is None or workout_calories is None:
-    st.error("Grundumsatz oder Workout-Kalorien fehlen – bitte zuerst Home und Vor-Workout durchlaufen.")
+    st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
 
 total_cal   = grundumsatz + workout_calories
 per_meal_cal = int(total_cal / 3)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 1) Listen aus TheMealDB laden (Categories, Areas, Ingredients)
-# ─────────────────────────────────────────────────────────────────────────────
-@st.cache_data
-def load_mealdb_lists():
-    base = "https://www.themealdb.com/api/json/v1/1/list.php"
-    cats = requests.get(f"{base}?c=list").json().get("meals", [])
-    areas = requests.get(f"{base}?a=list").json().get("meals", [])
-    ings = requests.get(f"{base}?i=list").json().get("meals", [])
-    return (
-        [c["strCategory"]   for c in cats],
-        [a["strArea"]       for a in areas],
-        [i["strIngredient"] for i in ings]
-    )
-
-categories, areas, ingredients = load_mealdb_lists()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2) Filter-UI
-# ─────────────────────────────────────────────────────────────────────────────
-st.markdown("### Filtere deine Rezepte")
-col1, col2, col3 = st.columns(3)
-with col1:
-    choice_cat  = st.selectbox("Kategorie", ["Alle"] + categories)
-with col2:
-    choice_area = st.selectbox("Region",    ["Alle"] + areas)
-with col3:
-    choice_ing  = st.selectbox("Zutat",     ["Alle"] + ingredients)
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 3) Rezepte abrufen
-# ─────────────────────────────────────────────────────────────────────────────
-params = {}
-if choice_cat  != "Alle": params["c"] = choice_cat
-if choice_area != "Alle": params["a"] = choice_area
-if choice_ing  != "Alle": params["i"] = choice_ing
-
-if params:
-    query = "&".join(f"{k}={urllib.parse.quote(v)}" for k, v in params.items())
-    url   = f"https://www.themealdb.com/api/json/v1/1/filter.php?{query}"
-    meals = requests.get(url).json().get("meals") or []
-else:
-    meals = []
-
 st.markdown("---")
-st.markdown(f"**Täglicher Gesamtbedarf:** {int(total_cal)} kcal")
-st.markdown(f"**Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
+st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal   •   **Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4) Details abrufen
+# Drei-Spalten: Frühstück, Mittag, Abend
 # ─────────────────────────────────────────────────────────────────────────────
-@st.cache_data
-def get_meal_details(idMeal: str) -> dict:
-    resp = requests.get(f"https://www.themealdb.com/api/json/v1/1/lookup.php?i={idMeal}")
-    data = resp.json().get("meals", [])
-    return data[0] if data else {}
+cols = st.columns(3)
+meal_queries = [("Frühstück", "breakfast"), ("Mittagessen", "lunch"), ("Abendessen", "dinner")]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5) Drei-Spalten-Layout: Frühstück, Mittag, Abend
-# ─────────────────────────────────────────────────────────────────────────────
-col_breakfast, col_lunch, col_dinner = st.columns(3)
-meal_columns = [
-    ("Frühstück", col_breakfast),
-    ("Mittagessen", col_lunch),
-    ("Abendessen", col_dinner)
-]
+for (label, query), col in zip(meal_queries, cols):
+    with col:
+        st.header(f"{label}\n~{per_meal_cal} kcal")
 
-for meal_label, column in meal_columns:
-    with column:
-        st.header(f"{meal_label}\n~{per_meal_cal} kcal")
-        if not meals:
-            st.write("Keine Rezepte gefunden.")
-            continue
-
-        # bis zu 3 zufällige, eindeutige Rezepte auswählen
-        picks = random.sample(meals, k=min(3, len(meals)))
-        for m in picks:
-            details = get_meal_details(m["idMeal"])
-            if not details:
-                continue
-
-            st.subheader(details["strMeal"])
-            st.image(details["strMealThumb"], use_container_width=True)
-            st.markdown(
-                f"**Kategorie:** {details['strCategory']}  •  "
-                f"**Region:** {details['strArea']}"
-            )
-            # Zutaten kurz anzeigen
-            ingreds = []
-            for i in range(1, 21):
-                ing  = details.get(f"strIngredient{i}")
-                meas = details.get(f"strMeasure{i}")
-                if ing and ing.strip():
-                    ingreds.append(f"{meas.strip()} {ing.strip()}")
-            st.markdown("**Zutaten:** " + ", ".join(ingreds[:5]) + ("…" if len(ingreds)>5 else ""))
-            st.markdown("---")
+        # 1) Suche nach Rezepten mit Stichwort (liefert bis zu 20 Treffer)
+        try:
+            search_resp = fatsecret_request("recipe.search", {
+                "search_expression": query,
+                "max_results": 20
+            })
+            hits
