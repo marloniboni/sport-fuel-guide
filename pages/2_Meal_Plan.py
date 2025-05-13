@@ -3,6 +3,7 @@ import streamlit as st #lädt Stramlitrahmen und gibt ihm st als alias, damit Ko
 import requests #wird benötigt um requests an APIs zu senden und Antworten zu verarbeiten
 import matplotlib.pyplot as plt #Importiert marplotlibs Plot-API unter alias plt, um Grafiken zu erzeugen und in Stremlit einzubinden
 import random
+import time
 
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
@@ -40,10 +41,10 @@ DISH_TYPES = {
 # Fetch-Hilfsfunktion: Rezepte aus Edamam laden
 # -
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
-def fetch_recipes(meal_type, diets, healths, max_results=5): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
+def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
     hits = [h["recipe"] for h in r.json().get("hits",[])]
-+   random.shuffle(hits)           # ← mischt nur die bereits gefilterten Rezepte
-    return hits[:max_results]      # ← gibt max_results Rezepte aus dieser zufälligen Reihenfolge
+    random.Random(seed).shuffle(hits)     #mischt nur die bereits gefilterten Rezepte
+    return hits[:max_results]              #gibt max_results Rezepte aus dieser zufälligen Reihenfolge
     # Basis-Parameter für die Anfrage bei der API (https://developer.edamam.com/edamam-docs-recipe-api)
     params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
     # Fügt ausgewählte Diät-Labels hinzu
@@ -60,7 +61,9 @@ def fetch_recipes(meal_type, diets, healths, max_results=5): #Ruft Rezepte von E
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
     # Extrahiert Rezepte aus der Antwort
+    # Rezepte extrahieren, mischen und auf max_results beschränken
     hits = [h["recipe"] for h in r.json().get("hits",[])]
+    random.Random(seed).shuffle(hits)
     return hits[:max_results]
 
 # -
@@ -137,11 +140,13 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
 cols = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
+seed = int(time.time() // 10)   # alle 10 Sekunden neuer Seed
+
 # Für jede Mahlzeit: Überschrift, Rezepte laden, Slider um mehrere Rezepte anzuzeigen und Visualisierung darzustellen
 for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
-        recs = fetch_recipes(mtype, sel_diets, sel_health) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
+        recs = fetch_recipes(mtype, sel_diets, sel_health, seed=seed) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
         if not recs:
             st.info("Keine passenden Rezepte gefunden.")
             continue
