@@ -2,39 +2,63 @@ import os
 import random
 import streamlit as st
 import requests
-from requests_oauthlib import OAuth1
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 1) FatSecret-Credentials aus Umgebungsvariablen holen
+# 1) API-Key aus Umgebungsvariablen holen
 # ─────────────────────────────────────────────────────────────────────────────
-FS_CONSUMER_KEY    = os.getenv("FS_CONSUMER_KEY", "")
-FS_CONSUMER_SECRET = os.getenv("FS_CONSUMER_SECRET", "")
-
-if not FS_CONSUMER_KEY or not FS_CONSUMER_SECRET:
+API_NINJAS_KEY = os.getenv("API_NINJAS_KEY", "")
+if not API_NINJAS_KEY:
     st.error(
-        "🚨 FatSecret-Credentials fehlen!\n\n"
-        "Bitte setze in deiner Umgebung die Variablen:\n"
-        "• FS_CONSUMER_KEY\n"
-        "• FS_CONSUMER_SECRET\n\n"
-        "z.B. lokal via `export FS_CONSUMER_KEY=...` oder in Streamlit Cloud unter App Settings → Secrets."
+        "🚨 Bitte setze die Umgebungsvariable API_NINJAS_KEY mit deinem API-Ninjas-Key!"
     )
     st.stop()
 
-auth = OAuth1(FS_CONSUMER_KEY, FS_CONSUMER_SECRET)
-FS_API_BASE = "https://platform.fatsecret.com/rest/server.api"
+HEADERS = {"X-Api-Key": API_NINJAS_KEY}
+RECIPE_URL   = "https://api.api-ninjas.com/v1/recipe"
+NUTRITION_URL = "https://api.api-ninjas.com/v1/nutrition"
 
-def fatsecret_request(method: str, params: dict) -> dict:
-    payload = {"method": method, "format": "json", **params}
-    resp = requests.get(FS_API_BASE, params=payload, auth=auth, timeout=10)
+# ─────────────────────────────────────────────────────────────────────────────
+# 2) Hilfsfunktionen
+# ─────────────────────────────────────────────────────────────────────────────
+@st.cache_data(show_spinner=False)
+def fetch_recipes(query: str, number: int = 3) -> list[dict]:
+    """Holt bis zu `number` Rezepte für die Suchanfrage `query`."""
+    params = {"query": query, "limit": number}
+    resp = requests.get(RECIPE_URL, headers=HEADERS, params=params, timeout=5)
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()  # Liste von {title, ingredients, instructions, servings}
+
+@st.cache_data(show_spinner=False)
+def estimate_calories(ingredients: str) -> int:
+    """
+    Zerlegt den `ingredients`-String (Semikolon-separiert),
+    fragt jede Zutat einmal an die Nutrition-API und summiert die kcal.
+    """
+    total = 0
+    # Zutaten-Split an Semikolon
+    for part in ingredients.split(";"):
+        item = part.strip()
+        if not item:
+            continue
+        # Nutrition-Request
+        try:
+            r = requests.get(NUTRITION_URL, headers=HEADERS, params={"query": item}, timeout=5)
+            r.raise_for_status()
+            data = r.json()
+            # data ist Liste von Einträgen, wir nehmen das erste
+            if data:
+                total += data[0].get("calories", 0)
+        except Exception:
+            # im Fehlerfall diese Zutat überspringen
+            continue
+    return total
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2) Streamlit-Grundgerüst
+# 3) Streamlit-Setup
 # ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Meal Plan mit FatSecret", layout="wide")
+st.set_page_config(page_title="Meal Plan mit API-Ninjas", layout="wide")
 
-# Simulation: Session-State-Werte müssen vorab gesetzt sein
+# Simuliere Session-State (in deinem echten Code wird das gesetzt)
 # st.session_state["grundumsatz"] = 2000
 # st.session_state["workout_calories"] = 500
 
@@ -46,11 +70,11 @@ total_cal    = st.session_state.grundumsatz + st.session_state.workout_calories
 per_meal_cal = total_cal // 3
 
 st.markdown("---")
-st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal")
+st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal")  
 st.markdown(f"**Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3) Drei-Spalten-Layout: Frühstück, Mittag, Abendessen
+# 4) Drei-Spalten: Frühstück, Mittag, Abend
 # ─────────────────────────────────────────────────────────────────────────────
 cols    = st.columns(3)
 queries = [("Frühstück", "breakfast"), ("Mittagessen", "lunch"), ("Abendessen", "dinner")]
@@ -59,49 +83,34 @@ for (label, term), col in zip(queries, cols):
     with col:
         st.header(f"{label} (~{per_meal_cal} kcal)")
 
-        # 3.1) Suche Rezepte
+        # 4.1) Rezepte holen
         try:
-            js   = fatsecret_request("recipe.search", {
-                "search_expression": term,
-                "max_results": 20
-            })
-            hits = js.get("recipes", {}).get("recipe", [])
+            recipes = fetch_recipes(term, number=3)
         except Exception as e:
-            st.error(f"Fehler bei recipe.search: {e}")
+            st.error(f"Fehler beim Laden der Rezepte: {e}")
             continue
 
-        if not hits:
+        if not recipes:
             st.info("Keine Rezepte gefunden.")
             continue
 
-        # 3.2) Wähle bis zu 3 Rezepte
-        for rec in random.sample(hits, k=min(3, len(hits))):
-            try:
-                detail = fatsecret_request("recipe.get", {"recipe_id": rec["recipe_id"]})
-                r      = detail.get("recipe", {})
-            except Exception as e:
-                st.warning(f"Details konnten nicht geladen werden: {e}")
-                continue
+        # 4.2) Jedes Rezept anzeigen und Kalorien schätzen
+        for rec in recipes:
+            title        = rec.get("title", "–")
+            ingredients  = rec.get("ingredients", "")
+            instructions = rec.get("instructions", "")
+            servings     = rec.get("servings", "")
 
-            name    = r.get("recipe_name", "–")
-            calories= r.get("nutrition", {}).get("calories", "unbekannt")
-            img_url = r.get("recipe_images", {}).get("recipe_image", {}).get("image_url")
+            kcal_est = estimate_calories(ingredients)
 
-            st.subheader(f"{name} — {calories} kcal")
-            if img_url:
-                st.image(img_url, use_container_width=True)
-
-            # Zutaten
-            ingreds = [i["food_description"] for i in r.get("ingredients", {}).get("ingredient", [])]
+            st.subheader(f"{title} — ca. {kcal_est} kcal")
+            st.markdown(f"**Portionen:** {servings}")
             st.markdown("**Zutaten:**")
-            for ing in ingreds[:5]:
-                st.write(f"- {ing}")
-            if len(ingreds) > 5:
+            for ing in ingredients.split(";")[:5]:
+                st.write(f"- {ing.strip()}")
+            if len(ingredients.split(";")) > 5:
                 st.write("…")
 
-            # Anleitung
-            if r.get("directions"):
-                st.markdown("**Anleitung:**")
-                st.write(r["directions"])
-
+            st.markdown("**Anleitung:**")
+            st.write(instructions)
             st.markdown("---")
