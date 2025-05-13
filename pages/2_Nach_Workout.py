@@ -1,148 +1,106 @@
 import os
 import random
-import urllib.parse
-
 import streamlit as st
 import requests
 
-# ─── 0) Page config MUST be first Streamlit call ────────────────────────────
-st.set_page_config(page_title="Nach Workout", layout="wide")
+# ─── 0) Page config ────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Meal Plan", layout="wide")
 
-# ─── 1) Load Edamam Nutrition Analysis credentials ───────────────────────────
-EDAMAM_APP_ID       = os.getenv("EDAMAM_APP_ID", "")
-EDAMAM_APP_KEY      = os.getenv("EDAMAM_APP_KEY", "")
-EDAMAM_ACCOUNT_USER = os.getenv("EDAMAM_ACCOUNT_USER", "")
-
-if not (EDAMAM_APP_ID and EDAMAM_APP_KEY and EDAMAM_ACCOUNT_USER):
-    st.error(
-        "🚨 Bitte setze in deinen Secrets:\n"
-        "• EDAMAM_APP_ID\n"
-        "• EDAMAM_APP_KEY\n"
-        "• EDAMAM_ACCOUNT_USER"
-    )
+# ─── 1) Load v2 credentials ───────────────────────────────────────────────────
+APP_ID   = os.getenv("EDAMAM_APP_ID", "")
+APP_KEY  = os.getenv("EDAMAM_APP_KEY", "")
+USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "")
+if not (APP_ID and APP_KEY and USER_ID):
+    st.error("Bitte setze EDAMAM_APP_ID, EDAMAM_APP_KEY und EDAMAM_ACCOUNT_USER in deinen Secrets!")
     st.stop()
 
-EDAMAM_NUTRI_URL = "https://api.edamam.com/api/nutrition-details"
+V2_URL = "https://api.edamam.com/api/recipes/v2"
 
-# ─── 2) MealDB helpers ───────────────────────────────────────────────────────
+# ─── 2) UI: Diet & Health labels ───────────────────────────────────────────────
+st.sidebar.markdown("### Ernährungspräferenzen")
+diet_options = ["balanced", "high-fiber", "high-protein", "low-carb", "low-fat", "low-sodium"]
+health_options = [
+    "alcohol-free","celery-free","crustacean-free","dairy-free","egg-free",
+    "fish-free","fodmap-free","gluten-free","keto-friendly","kosher",
+    "low-sugar","lupine-free","Mediterranean","paleo","peanut-free",
+    "pescatarian","pork-free","vegetarian","vegan","wheat-free"
+]
+
+selected_diets  = st.sidebar.multiselect("Diet labels", diet_options)
+selected_health = st.sidebar.multiselect("Health labels", health_options)
+
+# ─── 3) Fetch recipes via v2 ──────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
-def load_mealdb_lists():
-    base = "https://www.themealdb.com/api/json/v1/1/list.php"
-    cats  = requests.get(f"{base}?c=list").json().get("meals", [])
-    areas = requests.get(f"{base}?a=list").json().get("meals", [])
-    ings  = requests.get(f"{base}?i=list").json().get("meals", [])
-    return (
-        [c["strCategory"]   for c in cats],
-        [a["strArea"]       for a in areas],
-        [i["strIngredient"] for i in ings]
-    )
+def fetch_recipes_v2(meal_type: str, diets: list[str], healths: list[str], max_results: int = 3):
+    params = {
+        "type":     "public",
+        "app_id":   APP_ID,
+        "app_key":  APP_KEY,
+        "mealType": meal_type,
+    }
+    # Only include q if you want to search text; otherwise omit.
+    # params["q"] = meal_type.lower()  
 
-@st.cache_data(ttl=3600)
-def get_meal_details(idMeal: str) -> dict:
-    resp = requests.get(f"https://www.themealdb.com/api/json/v1/1/lookup.php?i={idMeal}")
-    meal = resp.json().get("meals", [])
-    return meal[0] if meal else {}
+    # add arrays
+    for d in diets:
+        params.setdefault("diet", []).append(d)
+    for h in healths:
+        params.setdefault("health", []).append(h)
 
-# ─── 3) Edamam Nutrition Analysis ────────────────────────────────────────────
-@st.cache_data(ttl=3600)
-def analyze_calories(ingredient_lines: list[str]) -> int | None:
-    """
-    Calls Edamam Nutrition Analysis API with full ingredient lines.
-    Returns total calories or None on failure.
-    """
-    headers = {"Edamam-Account-User": EDAMAM_ACCOUNT_USER}
-    params  = {"app_id": EDAMAM_APP_ID, "app_key": EDAMAM_APP_KEY}
-    body    = {"title": "Meal", "ingr": ingredient_lines}
+    # request only the fields we need
+    params["field"] = ["label","image","ingredientLines","calories","totalNutrients"]
 
-    r = requests.post(EDAMAM_NUTRI_URL, params=params, json=body, headers=headers, timeout=10)
-    # If unauthorized or error, bail out
-    if r.status_code != 200:
-        return None
+    headers = {"Edamam-Account-User": USER_ID}
+    resp = requests.get(V2_URL, params=params, headers=headers, timeout=5)
+    resp.raise_for_status()
+    hits = resp.json().get("hits", [])
+    return [h["recipe"] for h in hits][:max_results]
 
-    data = r.json()
-    return data.get("calories")
-
-# ─── 4) Ensure session-state values exist ────────────────────────────────────
+# ─── 4) Main app: Calories target and 3 columns ──────────────────────────────
+# Assume session_state already has these
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
 
-# ─── 5) Filter UI ────────────────────────────────────────────────────────────
-categories, areas, ingredients = load_mealdb_lists()
-c1, c2, c3 = st.columns(3)
-with c1:
-    choice_cat  = st.selectbox("Kategorie", ["Alle"] + categories)
-with c2:
-    choice_area = st.selectbox("Region",    ["Alle"] + areas)
-with c3:
-    choice_ing  = st.selectbox("Zutat",     ["Alle"] + ingredients)
-
-# ─── 6) Fetch MealDB list ────────────────────────────────────────────────────
-params = {}
-if choice_cat  != "Alle": params["c"] = choice_cat
-if choice_area != "Alle": params["a"] = choice_area
-if choice_ing  != "Alle": params["i"] = choice_ing
-
-if params:
-    query = "&".join(f"{k}={urllib.parse.quote(v)}" for k, v in params.items())
-    meals = requests.get(f"https://www.themealdb.com/api/json/v1/1/filter.php?{query}")\
-                   .json().get("meals", [])
-else:
-    meals = []
-
-# ─── 7) Calorie targets ──────────────────────────────────────────────────────
 total_cal   = st.session_state.grundumsatz + st.session_state.workout_calories
-per_meal_cal = total_cal // 3
+per_meal    = total_cal // 3
 
 st.markdown("---")
-st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal   •   **Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
+st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 
-# ─── 8) Display 3-column meal plan ───────────────────────────────────────────
-cols   = st.columns(3)
-labels = ["Frühstück", "Mittagessen", "Abendessen"]
+cols = st.columns(3)
+meals = [("Frühstück","Breakfast"), ("Mittagessen","Lunch"), ("Abendessen","Dinner")]
 
-for label, col in zip(labels, cols):
+for (label, meal_type), col in zip(meals, cols):
     with col:
-        st.subheader(label)
-        if not meals:
-            st.write("Keine Rezepte gefunden.")
+        st.subheader(f"{label} (~{per_meal} kcal)")
+        try:
+            recipes = fetch_recipes_v2(meal_type, selected_diets, selected_health, max_results=3)
+        except requests.HTTPError as e:
+            st.error(f"Fehler beim Laden: {e}")
             continue
 
-        # pick up to 3 random recipes
-        picks = random.sample(meals, k=min(3, len(meals)))
-        for m in picks:
-            d = get_meal_details(m["idMeal"])
-            if not d:
-                continue
+        if not recipes:
+            st.info("Keine Rezepte gefunden mit diesen Präferenzen.")
+            continue
 
-            # build ingredient lines for nutrition
-            ingr_lines = []
-            for i in range(1, 21):
-                ing = d.get(f"strIngredient{i}")
-                msr = d.get(f"strMeasure{i}")
-                if ing and ing.strip():
-                    ingr_lines.append(f"{msr.strip()} {ing.strip()}")
+        for r in recipes:
+            title     = r["label"]
+            image     = r.get("image")
+            calories  = int(r.get("calories",0))
+            nutrients = r.get("totalNutrients", {})
+            protein   = int(nutrients.get("PROCNT",{}).get("quantity",0))
+            fat       = int(nutrients.get("FAT",{}).get("quantity",0))
+            carbs     = int(nutrients.get("CHOCDF",{}).get("quantity",0))
 
-            kcal = analyze_calories(ingr_lines)
-            title = d.get("strMeal", "Unbekannt")
-            if kcal is None:
-                st.warning(f"{title} — Kalorien konnten nicht berechnet werden.")
-            else:
-                st.markdown(f"**{title} — {kcal} kcal**")
+            st.subheader(f"{title} — {calories} kcal")
+            if image:
+                st.image(image, use_container_width=True)
 
-            # image
-            thumb = d.get("strMealThumb")
-            if thumb:
-                st.image(thumb, use_container_width=True)
-
-            # ingredients
+            st.markdown(f"**Makros:** {protein} g P • {fat} g F • {carbs} g KH")
             st.markdown("**Zutaten:**")
-            for line in ingr_lines[:5]:
+            for line in r.get("ingredientLines", [])[:5]:
                 st.write(f"- {line}")
-            if len(ingr_lines) > 5:
+            if len(r.get("ingredientLines", [])) > 5:
                 st.write("…")
-
-            # instructions
-            st.markdown("**Anleitung:**")
-            st.write(d.get("strInstructions", "Keine Anleitung vorhanden."))
             st.markdown("---")
