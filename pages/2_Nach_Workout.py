@@ -1,12 +1,11 @@
 import os
-import random
 import streamlit as st
 import requests
 
 # ─── 0) Page config ────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Meal Plan", layout="wide")
 
-# ─── 1) Load v2 credentials ───────────────────────────────────────────────────
+# ─── 1) Edamam v2 Credentials ─────────────────────────────────────────────────
 APP_ID   = os.getenv("EDAMAM_APP_ID", "")
 APP_KEY  = os.getenv("EDAMAM_APP_KEY", "")
 USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "")
@@ -16,8 +15,8 @@ if not (APP_ID and APP_KEY and USER_ID):
 
 V2_URL = "https://api.edamam.com/api/recipes/v2"
 
-# ─── 2) UI: Diet & Health labels ───────────────────────────────────────────────
-st.sidebar.markdown("### Ernährungspräferenzen")
+# ─── 2) Sidebar: Preferences ──────────────────────────────────────────────────
+st.sidebar.markdown("## Allergien & Ernährungspräferenzen")
 diet_options = ["balanced", "high-fiber", "high-protein", "low-carb", "low-fat", "low-sodium"]
 health_options = [
     "alcohol-free","celery-free","crustacean-free","dairy-free","egg-free",
@@ -25,39 +24,31 @@ health_options = [
     "low-sugar","lupine-free","Mediterranean","paleo","peanut-free",
     "pescatarian","pork-free","vegetarian","vegan","wheat-free"
 ]
-
 selected_diets  = st.sidebar.multiselect("Diet labels", diet_options)
 selected_health = st.sidebar.multiselect("Health labels", health_options)
 
-# ─── 3) Fetch recipes via v2 ──────────────────────────────────────────────────
+# ─── 3) Helper: Fetch recipes ─────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
-def fetch_recipes_v2(meal_type: str, diets: list[str], healths: list[str], max_results: int = 3):
+def fetch_recipes(meal_type, diets, healths, max_results=3):
     params = {
         "type":     "public",
         "app_id":   APP_ID,
         "app_key":  APP_KEY,
         "mealType": meal_type,
+        # Keine freie Suche mehr, wir nutzen nur Filter
     }
-    # Only include q if you want to search text; otherwise omit.
-    # params["q"] = meal_type.lower()  
-
-    # add arrays
     for d in diets:
         params.setdefault("diet", []).append(d)
     for h in healths:
         params.setdefault("health", []).append(h)
-
-    # request only the fields we need
-    params["field"] = ["label","image","ingredientLines","calories","totalNutrients"]
-
+    params["field"] = ["label","image","yield","ingredientLines","calories","totalNutrients"]
     headers = {"Edamam-Account-User": USER_ID}
-    resp = requests.get(V2_URL, params=params, headers=headers, timeout=5)
-    resp.raise_for_status()
-    hits = resp.json().get("hits", [])
+    r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
+    r.raise_for_status()
+    hits = r.json().get("hits", [])
     return [h["recipe"] for h in hits][:max_results]
 
-# ─── 4) Main app: Calories target and 3 columns ──────────────────────────────
-# Assume session_state already has these
+# ─── 4) Check session state ───────────────────────────────────────────────────
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
@@ -68,16 +59,17 @@ per_meal    = total_cal // 3
 st.markdown("---")
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 
-cols = st.columns(3)
+# ─── 5) Display three columns ─────────────────────────────────────────────────
+cols  = st.columns(3)
 meals = [("Frühstück","Breakfast"), ("Mittagessen","Lunch"), ("Abendessen","Dinner")]
 
 for (label, meal_type), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
         try:
-            recipes = fetch_recipes_v2(meal_type, selected_diets, selected_health, max_results=3)
+            recipes = fetch_recipes(meal_type, selected_diets, selected_health)
         except requests.HTTPError as e:
-            st.error(f"Fehler beim Laden: {e}")
+            st.error(f"Fehler beim Laden der Rezepte: {e}")
             continue
 
         if not recipes:
@@ -87,20 +79,33 @@ for (label, meal_type), col in zip(meals, cols):
         for r in recipes:
             title     = r["label"]
             image     = r.get("image")
-            calories  = int(r.get("calories",0))
-            nutrients = r.get("totalNutrients", {})
-            protein   = int(nutrients.get("PROCNT",{}).get("quantity",0))
-            fat       = int(nutrients.get("FAT",{}).get("quantity",0))
-            carbs     = int(nutrients.get("CHOCDF",{}).get("quantity",0))
+            total_cals= r.get("calories", 0)
+            yield_n   = r.get("yield", 1) or 1
+            per_serv  = total_cals / yield_n
+            # Berechne benötigte Portionen
+            portions  = per_meal / per_serv if per_serv>0 else None
 
-            st.subheader(f"{title} — {calories} kcal")
+            st.subheader(title)
             if image:
                 st.image(image, use_container_width=True)
 
-            st.markdown(f"**Makros:** {protein} g P • {fat} g F • {carbs} g KH")
+            if portions:
+                st.markdown(f"**Portionen:** {portions:.1f} Portionen à {per_serv:.0f} kcal = {per_meal} kcal")
+            else:
+                st.markdown(f"**Kalorien gesamt:** {total_cals} kcal")
+
+            # Makros
+            nutrients = r.get("totalNutrients", {})
+            prot = nutrients.get("PROCNT",{}).get("quantity",0)/yield_n
+            fat  = nutrients.get("FAT",{}).get("quantity",0)/yield_n
+            carb = nutrients.get("CHOCDF",{}).get("quantity",0)/yield_n
+            st.markdown(f"**Makro pro Portion:** {prot:.0f} g P • {fat:.0f} g F • {carb:.0f} g KH")
+
+            # Ingredients
             st.markdown("**Zutaten:**")
             for line in r.get("ingredientLines", [])[:5]:
                 st.write(f"- {line}")
-            if len(r.get("ingredientLines", [])) > 5:
+            if len(r.get("ingredientLines", []))>5:
                 st.write("…")
+
             st.markdown("---")
