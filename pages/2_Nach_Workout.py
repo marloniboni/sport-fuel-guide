@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import requests
+import matplotlib.pyplot as plt
 
 # ─── 0) Page config ───────────────────────────────────────────────────────────
 st.set_page_config(page_title="Meal Plan", layout="wide")
@@ -37,7 +38,6 @@ DISH_TYPES = {
 # ─── 4) Fetch & filter helper ─────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def fetch_and_filter(meal_type, diets, healths, max_results=5):
-    # 1) Basis-Request
     params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
     for d in diets:  params.setdefault("diet", []).append(d)
     for h in healths: params.setdefault("health", []).append(h)
@@ -48,23 +48,7 @@ def fetch_and_filter(meal_type, diets, healths, max_results=5):
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
     hits = [h["recipe"] for h in r.json().get("hits",[])]
-    if not hits:
-        return []
-
-    # 2) Strenger Filter: mindestens 3 Zutatenzeilen und mindestens 1 Instruction
-    strict = []
-    for recipe in hits:
-        lines = recipe.get("ingredientLines",[])
-        instr = recipe.get("instructions") or []
-        # unify instruction into list
-        instr_list = instr if isinstance(instr, list) else [instr]
-        if len(lines) >= 3 and len(instr_list) >= 1:
-            strict.append(recipe)
-        if len(strict) >= max_results:
-            break
-
-    # 3) Falls strict leer, fallback auf die originalen hits
-    return (strict or hits)[:max_results]
+    return hits[:max_results]
 
 # ─── 5) Session-State check ───────────────────────────────────────────────────
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
@@ -77,7 +61,7 @@ per_meal  = total_cal // 3
 st.markdown("---")
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 
-# ─── 6) Anzeige mit Slider ────────────────────────────────────────────────────
+# ─── 6) Anzeige mit Slider und Grafik ─────────────────────────────────────────
 cols  = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
@@ -89,30 +73,41 @@ for (label, mtype), col in zip(meals, cols):
             st.info("Keine passenden Rezepte gefunden.")
             continue
 
+        # Slider 1–5
         idx = st.slider("Rezept auswählen", 1, len(recipes), key=mtype)
         r   = recipes[idx-1]
 
-        # Anzeige wie gehabt
+        # Basisdaten
         title    = r["label"]
         image    = r.get("image")
         total_c  = r.get("calories",0)
         yield_n  = r.get("yield",1) or 1
-        per_serv = total_c/ yield_n
-        portions = per_meal/ per_serv if per_serv>0 else None
+        per_serv = total_c / yield_n
+        portions = per_meal / per_serv if per_serv>0 else None
 
         st.markdown(f"### {title}")
         if image: st.image(image, use_container_width=True)
+
+        # Portionen­berechnung
         if portions:
             st.markdown(f"**Portionen:** {portions:.1f} × {per_serv:.0f} kcal = {per_meal} kcal")
         else:
             st.markdown(f"**Kalorien gesamt:** {total_c} kcal")
 
-        nut = r.get("totalNutrients",{})
-        prot = nut.get("PROCNT",{}).get("quantity",0)/yield_n
-        fat  = nut.get("FAT",{}).get("quantity",0)/yield_n
-        carb = nut.get("CHOCDF",{}).get("quantity",0)/yield_n
-        st.markdown(f"**Makro pro Portion:** {prot:.0f} g P • {fat:.0f} g F • {carb:.0f} g KH")
+        # Makros pro Portion
+        nut  = r.get("totalNutrients",{})
+        prot = nut.get("PROCNT",{}).get("quantity",0) / yield_n
+        fat  = nut.get("FAT",{}).get("quantity",0) / yield_n
+        carb = nut.get("CHOCDF",{}).get("quantity",0) / yield_n
 
+        # Grafik
+        fig, ax = plt.subplots()
+        ax.bar(["Protein","Fat","Carbs"], [prot, fat, carb])
+        ax.set_ylabel("Gramm pro Portion")
+        ax.set_title("Makros pro Portion")
+        st.pyplot(fig)
+
+        # Zutaten & Anleitung
         with st.expander("Zutaten"):
             for line in r.get("ingredientLines",[]): st.write(f"- {line}")
         with st.expander("Anleitung"):
