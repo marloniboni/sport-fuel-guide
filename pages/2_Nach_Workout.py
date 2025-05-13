@@ -1,106 +1,96 @@
 import os
 import random
 import streamlit as st
-from requests_oauthlib import OAuth1Session
+import requests
+from requests_oauthlib import OAuth1
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FatSecret Credentials (bitte in deinen Umgebungsvariablen setzen!)
+# FatSecret Credentials
 # ─────────────────────────────────────────────────────────────────────────────
 FS_CONSUMER_KEY    = os.getenv("FS_CONSUMER_KEY", "9ced8a2df62549a594700464259c95de")
 FS_CONSUMER_SECRET = os.getenv("FS_CONSUMER_SECRET", "<dein_consumer_secret>")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# FatSecret OAuth1-Session initialisieren
-# ─────────────────────────────────────────────────────────────────────────────
-fs = OAuth1Session(
-    client_key=FS_CONSUMER_KEY,
-    client_secret=FS_CONSUMER_SECRET
-)
-
 FS_API_BASE = "https://platform.fatsecret.com/rest/server.api"
+
+# OAuth1-Objekt (zum Signieren jeder Anfrage)
+auth = OAuth1(FS_CONSUMER_KEY, FS_CONSUMER_SECRET)
 
 def fatsecret_request(method: str, params: dict) -> dict:
     """
-    Generische FatSecret-GET-Anfrage mit OAuth1-Signatur.
-    Liefert das JSON-Response-Dict zurück.
+    Macht eine GET-Anfrage an FatSecret, signiert mit OAuth1.
+    Gibt das JSON zurück oder wirft eine Exception mit voller Fehlermeldung.
     """
-    base_params = {
+    payload = {
         "method": method,
-        "format": "json"
+        "format": "json",
+        **params
     }
-    response = fs.get(FS_API_BASE, params={**base_params, **params})
-    response.raise_for_status()
-    return response.json()
+    resp = requests.get(FS_API_BASE, params=payload, auth=auth, timeout=10)
+    
+    # Debug-Ausgabe, damit du siehst, was kommt
+    st.write(f"Request to {method} returned HTTP {resp.status_code}")
+    try:
+        data = resp.json()
+        st.write(data)  # zeige das rohe JSON
+    except ValueError:
+        st.error("Keine JSON-Antwort erhalten:")
+        st.write(resp.text)
+        st.stop()
+    
+    resp.raise_for_status()
+    return data
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Streamlit-Setup
+# Streamlit-Grundgerüst
 # ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Meal Plan mit FatSecret", layout="wide")
+st.set_page_config(page_title="Debug FatSecret", layout="wide")
 
-try:
-    grundumsatz      = st.session_state["grundumsatz"]
-    workout_calories = st.session_state["workout_calories"]
-except KeyError:
+if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
 
-total_cal   = grundumsatz + workout_calories
+total_cal   = st.session_state.grundumsatz + st.session_state.workout_calories
 per_meal_cal = total_cal // 3
 
+st.markdown(f"**Tagesbedarf:** {total_cal} kcal — **pro Mahlzeit:** ~{per_meal_cal} kcal")
 st.markdown("---")
-st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal")
-st.markdown(f"**Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Drei-Spalten-Layout: Frühstück, Mittagessen, Abendessen
-# ─────────────────────────────────────────────────────────────────────────────
 cols = st.columns(3)
 queries = [("Frühstück", "breakfast"), ("Mittagessen", "lunch"), ("Abendessen", "dinner")]
 
-for (label, search_term), col in zip(queries, cols):
+for (label, term), col in zip(queries, cols):
     with col:
         st.header(f"{label} (~{per_meal_cal} kcal)")
         try:
-            # 1) Suche Rezepte
-            search_json = fatsecret_request("recipe.search", {
-                "search_expression": search_term,
+            search = fatsecret_request("recipe.search", {
+                "search_expression": term,
                 "max_results": 20
             })
-            hits = search_json.get("recipes", {}).get("recipe", [])
+            recipes = search.get("recipes", {}).get("recipe", [])
         except Exception as e:
-            st.error(f"Fehler bei FatSecret-Suche: {e}")
+            st.error(f"Fehler bei recipe.search: {e}")
             continue
 
-        if not hits:
-            st.write("Keine Rezepte gefunden.")
+        if not recipes:
+            st.info("Keine Rezepte gefunden.")
             continue
 
-        # 2) Wähle bis zu 3 zufällige Rezepte
-        picks = random.sample(hits, k=min(3, len(hits)))
-
-        for rec in picks:
+        for rec in random.sample(recipes, min(3, len(recipes))):
             try:
-                # 3) Hole Detail-Infos
-                detail_json = fatsecret_request("recipe.get", {"recipe_id": rec["recipe_id"]})
-                recipe = detail_json.get("recipe", {})
+                detail = fatsecret_request("recipe.get", {"recipe_id": rec["recipe_id"]})
+                r = detail.get("recipe", {})
             except Exception as e:
-                st.warning(f"Details konnten nicht geladen werden: {e}")
+                st.warning(f"recipe.get fehlgeschlagen: {e}")
                 continue
 
-            name       = recipe.get("recipe_name", "Unbekannt")
-            calories   = recipe.get("nutrition", {}).get("calories", "unbekannt")
-            image_url  = recipe.get("recipe_images", {}).get("recipe_image", {}).get("image_url", None)
-            ingredients = [i.get("food_description", "") for i in recipe.get("ingredients", {}).get("ingredient", [])]
-
-            st.subheader(f"{name} — {calories} kcal")
-            if image_url:
-                st.image(image_url, use_container_width=True)
+            # Anzeige
+            kcal = r.get("nutrition", {}).get("calories", "unbekannt")
+            st.subheader(f"{r.get('recipe_name','?')} — {kcal} kcal")
+            img = r.get("recipe_images", {}).get("recipe_image", {}).get("image_url")
+            if img:
+                st.image(img, use_container_width=True)
+            ingreds = [i["food_description"] for i in r.get("ingredients",{}).get("ingredient",[])]
             st.markdown("**Zutaten:**")
-            for ing in ingredients[:5]:
-                st.write(f"- {ing}")
-            if len(ingredients) > 5:
-                st.write("…")
-            if recipe.get("directions"):
-                st.markdown("**Anleitung:**")
-                st.write(recipe["directions"])
-            st.markdown("---")
+            for i in ingreds[:5]:
+                st.write(f"- {i}")
+            if len(
