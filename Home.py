@@ -30,7 +30,7 @@ else:                                                                           
 
 fluessigkeit = gewicht * 0.035                                                  #Berechnung Flüssigkeitsbedarf. Quelle: Migros, https://impuls.migros.ch/de/ernaehrung/nahrungsmittel/getraenke/wasser-trinken
 
-# Home-Page: nachdem Du die Slider/Selectboxen gelesen hast:
+#Speichern der Werte im Session-State, damit sie anschliessend wieder abgerufen werden können.
 st.session_state['gewicht']    = gewicht
 st.session_state['groesse']    = groesse
 st.session_state['alter']      = alter
@@ -38,27 +38,31 @@ st.session_state['geschlecht'] = geschlecht
 st.session_state['grundumsatz'] = grundumsatz
 st.session_state['fluessigkeit'] = fluessigkeit
 
+#Abschnittstrennung und anschliessendes Anzeigen des Grundumsatzes und Flüssigkeitsbedarf
 st.markdown("---")
 st.success("Deine berechneten Werte")
 r1, r2 = st.columns(2)
 r1.metric("Grundumsatz (kcal/Tag)", f"{int(grundumsatz)}")
 r2.metric("Flüssigkeitsbedarf (L/Tag)", f"{fluessigkeit:.2f} L")
+
+#Zusätzliche Darstellung von Grundumsatz und Flüssigkeitsbedarf
 st.markdown("<p style='font-weight:bold; font-size:1.2rem; margin-top:-0.5rem;'>Mit deinen Zahlen hört das Rätselraten auf </p>", unsafe_allow_html=True)
 st.write(f"**Grundumsatz**: ca. `{int(grundumsatz)} kcal` pro Tag")
 st.write(f"**Täglicher Flüssigkeitsbedarf**: ca. `{fluessigkeit:.2f} Liter`")
 
+#Abspeichern von Gewicht, Grundumsatz und Flüssigkeitsbedarf in Session-State, zur Weiterverwendung auf anderen Seiten
 st.session_state.gewicht = gewicht
 st.session_state.grundumsatz = grundumsatz
 st.session_state.fluessigkeit = fluessigkeit
 
-# Navigation zur Vorbereitungsseite
+# Navigation zur Vorbereitungsseite (Vor Workout)
 st.markdown("---")
 st.markdown("### Hast du ein Workout geplant?")
 
-left, center, right = st.columns([1,2,1])
+left, center, right = st.columns([1,2,1])    #Button zur Navigation zur Vor Workout Seite
 if center.button("Zur Vorbereitungsseite"):
     # Session-State updaten (wie gehabt)
-    st.session_state.update({
+    st.session_state.update({                #Speicherung der Daten in Session-Satate sicherstellen.
         "gewicht":      gewicht,
         "groesse":      groesse,
         "alter":        alter,
@@ -66,4 +70,4 @@ if center.button("Zur Vorbereitungsseite"):
         "grundumsatz":  grundumsatz,
         "fluessigkeit": fluessigkeit
     })
-    st.switch_page("pages/1_Vor_Workout.py")
+    st.switch_page("pages/1_Vor_Workout.py")    #Link wechselt zur Seite "Vor-Workout.py"
