@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import urllib.parse
+import random  # neu importieren
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Seiten-Config
@@ -55,7 +56,6 @@ with col3:
 # ─────────────────────────────────────────────────────────────────────────────
 # 3) Rezepte abrufen
 # ─────────────────────────────────────────────────────────────────────────────
-# Parameter bauen
 params = {}
 if choice_cat  != "Alle": params["c"] = choice_cat
 if choice_area != "Alle": params["a"] = choice_area
@@ -71,19 +71,43 @@ else:
 st.header(f"Gefundene Rezepte: {len(meals)}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4) Details der ersten 3 Rezepte anzeigen
+# 4) Helper: Meal-Details abrufen
 # ─────────────────────────────────────────────────────────────────────────────
+@st.cache_data
 def get_meal_details(idMeal: str) -> dict:
     resp = requests.get(f"https://www.themealdb.com/api/json/v1/1/lookup.php?i={idMeal}")
     data = resp.json().get("meals", [])
     return data[0] if data else {}
 
-for meal in meals[:3]:
-    details = get_meal_details(meal["idMeal"])
-    if not details:
+# ─────────────────────────────────────────────────────────────────────────────
+# 5) Kalorien-Übersicht und Verteilung
+# ─────────────────────────────────────────────────────────────────────────────
+st.markdown("---")
+st.markdown(f"**Täglicher Gesamtbedarf:** {int(total_cal)} kcal")
+
+# teile das Tagesziel in drei gleiche Mahlzeiten auf
+per_meal_cal = int(total_cal / 3)
+st.markdown(f"**Kalorien pro Mahlzeit:** ~{per_meal_cal} kcal")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6) Empfehlungen: Frühstück, Mittagessen, Abendessen
+# ─────────────────────────────────────────────────────────────────────────────
+meal_times = [("Frühstück", "Breakfast"), ("Mittagessen", "Lunch"), ("Abendessen", "Dinner")]
+
+for label, _ in meal_times:
+    st.subheader(label + f" (~{per_meal_cal} kcal)")
+    if not meals:
+        st.write("Keine Rezepte gefunden.")
         continue
 
-    st.subheader(details["strMeal"])
+    # zufälliges Rezept wählen (Sie können hier auch nach Kategorie filtern)
+    meal = random.choice(meals)
+    details = get_meal_details(meal["idMeal"])
+    if not details:
+        st.write("Details konnten nicht geladen werden.")
+        continue
+
+    st.markdown(f"**{details['strMeal']}**")
     st.image(details["strMealThumb"], use_container_width=True)
     st.markdown(
         f"**Kategorie:** {details['strCategory']}  •  "
@@ -100,9 +124,3 @@ for meal in meals[:3]:
         if ing and ing.strip():
             ingreds.append(f"- {meas.strip()} {ing.strip()}")
     st.markdown("**Zutaten:**\n" + "\n".join(ingreds))
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5) Kurze Kalorien-Übersicht
-# ─────────────────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown(f"**Gesamtbedarf:** {int(total_cal)} kcal")
