@@ -95,7 +95,7 @@ except Exception as e:
     faktoren = {"Laufen": 7, "Radfahren": 5, "Schwimmen": 6}
     cal_burn = faktoren[sportart] * gewicht * (dauer / 60)
 
-# Berechnet den geschätzten Flüssigkeitsverlust (L pro Stunde). Quelle: Hirsladen: https://www.hirslanden.ch/de/hirslandenblog/medizin/trinken-beim-sport.html#:~:text=Hier%20sollten%20Sie%20auch%20w%C3%A4hrend,Schweissverlustes%20an%20Fl%C3%BCssigkeit%20wieder%20aufzunehmen.&text=Das%20American%20College%20of%20Sports,Merke:
+# Berechnet den geschätzten Flüssigkeitsverlust (L pro Stunde). Quelle: Hirsladen: https://www.hirslanden.ch/de/hirslandenblog/medizin/trinken-beim-sport.html#:~:text=Hier%20sollten%20Sie%20auch%20w%C3%A4hrend,Schweissverlustes%20an%20Fl%C3%BCssigkeit%20wieder%20aufzunehmen.&text=Das%20American%20College%20of%20Sports
 fluid_loss = 0.7 * (dauer / 60)
 
 # Speichert die Werte im Session-State für spätere Nutzung
@@ -220,35 +220,35 @@ if snack_query:
                     })
 
 # Darstellung des Warenkorbs und Fueling-Chart
-# ---------------------------
+# -------------------------
 cart = st.session_state.cart        #Warenkorb wieder abrufen
 if cart:
-    df_cart = pd.DataFrame(cart)
-    df_cart["step"] = np.arange(1,len(df_cart)+1)
+    df_cart = pd.DataFrame(cart)      #Umwandlung Liste von Snacks in DataFrame Tabelle
+    df_cart["step"] = np.arange(1,len(df_cart)+1)    #Fortlaufende Nummerierung 1 bis N
 
-    st.subheader("Deine ausgewählten Snacks")
+    st.subheader("Deine ausgewählten Snacks") #Anzeigen der Tabelle
     st.table(
         df_cart[["step","description","grams","kcal","carbs"]]
-               .rename(columns={"step":"#","description":"Snack","carbs":"Carbs (g)"})
+               .rename(columns={"step":"#","description":"Snack","carbs":"Carbs (g)"}) #Umbennennung der Spaltenüberschriften zur besseren Lesbarkeit
     )
   
     # Fueling: Bedarf vs. Zufuhr
-    hours      = np.arange(0, dauer/60 + 1, 1)
-    req_hourly = gewicht * 1.5                       # g Kohlenhydrate pro kg pro Stunde
-    req_cum    = hours * req_hourly
+    hours      = np.arange(0, dauer/60 + 1, 1)    #Erstellung von Stundenmarken von 0 bis zur Dauer der Aktivität
+    req_hourly = gewicht * 1.5                      # Quelle: Hirsladen: https://www.hirslanden.ch/de/hirslandenblog/medizin/trinken-beim-sport.html#:~:text=Hier%20sollten%20Sie%20auch%20w%C3%A4hrend,Schweissverlustes%20an%20Fl%C3%BCssigkeit%20wieder%20aufzunehmen.&text=Das%20American%20College%20of%20Sports
+    req_cum    = hours * req_hourly                #Rechnet wie viele g Carbs man bis zu jeder Stunde komuliert benötigt wird
 
-    total_carbs = df_cart["carbs"].sum()
+    total_carbs = df_cart["carbs"].sum()        #Summe alles Kcal die durch Snacks aufgenommen werden
 
-    df_req = pd.DataFrame({"Hour": hours, "Carbs": req_cum, "Type":"Required"})
-    df_act = pd.DataFrame({
+    df_req = pd.DataFrame({"Hour": hours, "Carbs": req_cum, "Type":"Required"}) #Soll-Werte Kcal pro Stunde
+    df_act = pd.DataFrame({                            #Ist-Wert am Schluss des Workouts
         "Hour":    [hours.max()],
         "Carbs":   [total_carbs],
         "Type":    ["Consumed"]
     })
 
-    df_plot = pd.concat([df_req, df_act], ignore_index=True)
+    df_plot = pd.concat([df_req, df_act], ignore_index=True)    #Verbindet beide Tabellen also Bedarf + nötige Kcal Zufuhr in eine Plot Tabelle
 
-    st.subheader("Kumulative Kohlenhydrat-Zufuhr vs. Bedarf")
+    st.subheader("Kumulative Kohlenhydrat-Zufuhr vs. Bedarf")    #Visualisierung
     chart = (
         alt.Chart(df_plot)
            .mark_line(point=True)
