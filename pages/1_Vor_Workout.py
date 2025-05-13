@@ -170,16 +170,16 @@ st.subheader("Snack-Empfehlungen via USDA")
 snack_query = st.text_input("Snack suchen (Schlagwort)", "")
 
 if snack_query:
-    foods = search_foods(snack_query, limit=5)
+    foods = search_foods(snack_query, limit=5)        #Erscheinung von 5 Suchresultaten
     if not foods:
-        st.warning("Keine Produkte gefunden – versuche ein anderes Stichwort.")
+        st.warning("Keine Produkte gefunden – versuche ein anderes Stichwort.")     #Keine Resultate gefunden
     else:
         for food in foods:
             desc    = food.get("description","Unbekannt")
             fdc     = food.get("fdcId")
             details = get_food_details(fdc)
 
-            # Robustes Nährstoff-Dictionary erstellen
+            # Robustes Nährstoff-Dictionary wird erstellt. Code erstellt mit Hilfe von: OpenAI. (2025). ChatGPT 4O (Version vom 29.04.2025) [Large language model]. https://chat.openai.com/chat.
             nut = {}
             for n in details.get("foodNutrients",[]):
                 if "nutrient" in n and isinstance(n["nutrient"], dict):
@@ -191,25 +191,25 @@ if snack_query:
                 if k:
                     nut[k] = v or 0
 
-            # Nährwerte pro 100g
+            # Nährwerte pro 100g Quelle: U.S. Department of Agriculture, https://fdc.nal.usda.gov/api-guide
             cal100  = nut.get("Energy") or nut.get("Calories") or 0
             carb100 = nut.get("Carbohydrate, by difference",0)
 
-            # Bestimme Portionsgröße in Gramm
+            # Bestimme Portionsgröße in Gramm Quelle: U.S. Department of Agriculture, https://fdc.nal.usda.gov/api-guide
             servs     = details.get("servings",{}).get("serving",[])
             if isinstance(servs,dict): servs=[servs]
             gs        = next((s for s in servs if s.get("metricServingUnit")=="g"), servs[0] if servs else {}).get("metricServingAmount",100)
             gram_serv = float(gs)
 
-            # Berechne Nährwerte pro Portion
+            # Berechne Nährwerte pro Portion klassische 3 Satz Berechnung
             kcal_serv = cal100  * gram_serv/100.0
             carb_serv = carb100 * gram_serv/100.0
 
-            c1,c2 = st.columns([5,1])
+            c1,c2 = st.columns([5,1]) #Streamlit Design zur Darstellung von Warenkörben
             with c1:
                 st.markdown(f"**{desc}** — {gram_serv:.0f} g → **{kcal_serv:.0f} kcal**, "
                             f"**{carb_serv:.0f} g Carbs**")
-            if c2.button("➕", key=f"add_{fdc}"):
+            if c2.button("+", key=f"add_{fdc}"):
                 if not any(item["fdc"]==fdc for item in st.session_state.cart):
                     st.session_state.cart.append({
                         "fdc":        fdc,
@@ -219,10 +219,9 @@ if snack_query:
                         "carbs":      carb_serv
                     })
 
-# ----------------------------------------
 # Darstellung des Warenkorbs und Fueling-Chart
-# ----------------------------------------
-cart = st.session_state.cart
+# ---------------------------
+cart = st.session_state.cart        #Warenkorb wieder abrufen
 if cart:
     df_cart = pd.DataFrame(cart)
     df_cart["step"] = np.arange(1,len(df_cart)+1)
