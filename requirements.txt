@@ -1,15 +1,15 @@
-streamlit
-pandas
-gpxpy
-requests
-folium
-streamlit-folium
-matplotlib
-noms
-fitparse
-altair
-requests-oauthlib
-gpxpy
-joblib
-scikit-learn
+streamlit  #Framework zur Erstellung von Web-Apps
+pandas    #Verarbeitung von Daten in Tabellen
+gpxpy    #Auslesen von GPX-Dateien
+requests    #Für HTTP-Anfragen für APIs
+folium    #Erstellung von Karten
+streamlit-folium    #Verbindung von Folium Karten und Streamlit Apps
+matplotlib    #Plotting von Daten
+noms    #Zur Analyse von Nährwerten
+fitparse    #Für das Lesen von .fit Dateien
+altair    #Für ästhetische und interaktive Diagramme
+requests-oauthlib    #Für mögliche Strava oder Garmin API wegen 2.0 Authentifizierung
+gpxpy    #Auslesen von GPX-Dateien
+joblib    #Speicherung und Ladung von Machine Learning Modellen für .pkl Dateien
+scikit-learn    #Machine Learning Voraussetzung
 
