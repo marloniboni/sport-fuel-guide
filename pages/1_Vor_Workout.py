@@ -1,4 +1,4 @@
-import os
+import os                                           #-> siehe requirements.txt
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -248,7 +248,7 @@ if cart:
 
     df_plot = pd.concat([df_req, df_act], ignore_index=True)    #Verbindet beide Tabellen also Bedarf + nötige Kcal Zufuhr in eine Plot Tabelle
 
-    st.subheader("Kumulative Kohlenhydrat-Zufuhr vs. Bedarf")    #Visualisierung
+    st.subheader("Kumulative Kohlenhydrat-Zufuhr vs. Bedarf")    #Visualisierung mit alt->requirements.txt
     chart = (
         alt.Chart(df_plot)
            .mark_line(point=True)
@@ -262,32 +262,31 @@ if cart:
     )
     st.altair_chart(chart, use_container_width=True)
 
-# ----------------------------------------
 # 3) Route-Map & GPX-Download
-# ----------------------------------------
-if coords:
-    # Erstelle Folium-Karte mit Track
+# ----
+if coords:                #Sind Koordinatenpunkte da?
+    # Erstelle Folium-Karte mit Track. Quelle: Folium: https://python-visualization.github.io/folium/latest/reference.html
     m = folium.Map(location=coords[0], zoom_start=13)
     folium.PolyLine(coords, color="blue").add_to(m)
     # Markiere Essen-/Trinken-Zeitpunkte auf der Karte
-    for t in events:
+    for t in events:        #Zeitpunkte für Ess- und Trinkaufnahme markieren. Quelle: Folium: https://python-visualization.github.io/folium/latest/reference.html
         idx = min(int(t/dauer*len(coords)), len(coords)-1)
         lat, lon = coords[idx]
-        folium.CircleMarker(
+        folium.CircleMarker(                #Setzt Punkt auf Karte
             (lat, lon),
             radius=5,
             color="red" if t%eat_int==0 else "yellow",
             fill=True
         ).add_to(m)
-    st.subheader("Route & Timing auf der Karte")
+    st.subheader("Route & Timing auf der Karte")        #Einfügen der Karte in Streamlit
     st_folium(m, width=700, height=400)
     # Bietet die Route als GPX zum Download an
-    st.download_button(
+    st.download_button(                                    #Mögliches Herunterladen der Karte in Form einer .gpx Datei für bspw. Garmin Edge
         "GPX herunterladen",
         gpx.to_xml(),
         file_name="route_intake.gpx",
         mime="application/gpx+xml"
-    )
+    )                                                  
 
 # Trennt den Abschnitt optisch
 st.markdown("---")
