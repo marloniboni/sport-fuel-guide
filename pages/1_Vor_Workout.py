@@ -9,14 +9,14 @@ from streamlit_folium import st_folium
 import altair as alt
 import joblib
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 # Page config
-# ─────────────────────────────────────────────────────────────────────────────
+
 st.set_page_config(page_title="Sport-Fuel Guide", layout="wide")
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 # 1) Vor-Workout Planung
-# ─────────────────────────────────────────────────────────────────────────────
+
 if "gewicht" not in st.session_state:
     st.warning("Bitte gib zuerst deine Körperdaten auf der Startseite ein.")
     st.stop()
@@ -51,9 +51,8 @@ else:
 
 st.markdown(f"**Dauer:** {dauer:.0f} Min • **Distanz:** {distanz:.2f} km")
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Machine Learning Part
-# ─────────────────────────────────────────────────────────────────────────────
+
 @st.cache_resource
 def load_model():
     return joblib.load("models/calorie_predictor.pkl")
@@ -122,9 +121,9 @@ st.table(df_schedule)
 
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 # 2) Snack-Finder (USDA) mit Accumulativer Liste
-# ─────────────────────────────────────────────────────────────────────────────
+
 FDC_API_KEY = "XDzSn37cJ5NRjskCXvg2lmlYUYptpq8tT68mPmPP"
 
 @st.cache_data
@@ -224,9 +223,9 @@ if cart:
                .rename(columns={"step":"#","description":"Snack","carbs":"Carbs (g)"})
     )
 
-    # ─────────────────────────────────────────────────────────────────────────
+
     #  Fueling requirement vs actual carbs consumed
-    # ─────────────────────────────────────────────────────────────────────────
+  
     hours      = np.arange(0, dauer/60 + 1, 1)
     req_hourly = gewicht * 1.5                       # g carbs per kg per hour
     req_cum    = hours * req_hourly
@@ -256,9 +255,9 @@ if cart:
     )
     st.altair_chart(chart, use_container_width=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
+
 # 3) Route-Map & GPX-Download
-# ─────────────────────────────────────────────────────────────────────────────
+
 if coords:
     m = folium.Map(location=coords[0], zoom_start=13)
     folium.PolyLine(coords, color="blue").add_to(m)
