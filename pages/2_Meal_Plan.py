@@ -7,7 +7,6 @@ import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
-# -
 # Edamam API-Anmeldeinformationen werden eingelesen
 # -
 # Liest IDs und Schlüssel aus Umgebungsvariablen bzw. Streamlit-Secrets https://www.geeksforgeeks.org/python-os-getenv-method/?utm_source=chatgpt.com
@@ -18,9 +17,7 @@ USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "") #USER_ID von EDAMAM die in Secre
 # Basis-URL für Edamam API Version 2
 V2_URL = "https://api.edamam.com/api/recipes/v2"
 
-# -
 # Sidebar: Allergien & Ernährungspräferenzen
-# -
 st.sidebar.markdown("## Diät- & Ernährungspräferenzen")
 # Mögliche Diät- und Ernährungspräferenzen laut Edamam
 diet_opts = ["balanced","high-fiber","high-protein","low-carb","low-fat","low-sodium"] #sind auf englisch da direkt mit API verbunden, welche auch auf Englisch ist
@@ -36,12 +33,12 @@ DISH_TYPES = {
     "Dinner":    ["Main course","Side dish","Soup"]
 }
 
-# -
-# Fetch-Hilfsfunktion: Rezepte aus Edamam laden
-# -
+
+#Fetch-Hilfsfunktion: Rezepte aus Edamam laden
+#----
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
 def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels, seed dient als Initialisierung für Zufallsgenerator, um gefundene Rezeptliste vor Kürzen zu mischen
-    # 1) Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
+    # Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
     params = {"type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
     for d in diets: #nimmt die Diätpräferenz welche der Nutzer in der Sidebar auwählt in kauf
         params.setdefault("diet", []).append(d)
@@ -52,18 +49,17 @@ def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Reze
     params["field"] = ["uri", "label", "image", "yield","ingredientLines", "calories", "totalNutrients", "instructions"]
     headers = {"Edamam-Account-User": USER_ID}
 
-    # Sendet die API-Anfrage mit Parametern und Headern (Timeout 5 s) und löst bei Fehlern eine Ausnahme aus.
+    #Sendet die API-Anfrage mit Parametern und Headern (Timeout 5 s) und löst bei Fehlern eine Ausnahme aus.
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
 
-    # 3) Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
+    #Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
     hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
     return hits[:max_results]
 
-# -
 # Prüft, ob nötige Werte im vorherigen Seiten schon vorhanden sind, ansonsten Fehlermeldung dass diese noch ausgefüllt werden müssen
-# -
+# ----------------
 # Grundumsatz und Kalorienverbrauch müssen aus vorheriger App-Seite kommen, sonst gibt es keine Berechnungsgrundlage
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
@@ -73,20 +69,19 @@ if "grundumsatz" not in st.session_state or "workout_calories" not in st.session
 total_cal = st.session_state.grundumsatz + st.session_state.workout_calories
 per_meal  = total_cal // 3
 
-# Ausgabe des Bedarfs,der aus Vor-Workout und Home genommen und addiert wird
+# Ausgabe des Bedarfs, der aus Vor-Workout und Home genommen und addiert wird
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 st.markdown("---")
 
-# -
 # Funktion zur Ausgabe der Rezeptkarte
-# -
+# --------
 def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährstoffe und Zutaten/Anleitung im Expander an.
 
-    # Titel und Bild aus API
+    #Titel und Bild aus API
     title    = r.get("label", "–")
     image    = r.get("image")
     total_c  = r.get("calories", 0)
-    # Yield: Anzahl Portionen insgesamt indem es die Totale Kalorienanzahl die benötigt wird, durch die des Rezeptes rechnet
+    #Yield: Anzahl Portionen insgesamt indem es die Totale Kalorienanzahl die benötigt wird, durch die des Rezeptes rechnet
     yield_n  = r.get("yield", 1) or 1
     per_serv = total_c / yield_n
     # Berechnet, wie viele Portionen nötig sind, um pro Mahlzeit kcal zu erreichen
@@ -102,9 +97,7 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
     else:
         st.markdown(f"Kalorien gesamt: {total_c} kcal")
 
-    # -
     # Makronährstoff-Chart aus Edamam API
-    # -
     nut = r.get("totalNutrients", {})
     prot = nut.get("PROCNT", {}).get("quantity", 0) / yield_n
     fat  = nut.get("FAT", {}).get("quantity", 0) / yield_n
@@ -117,9 +110,7 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
     ax.set_title("Makros")
     st.pyplot(fig)
 
-    # -
     # Zutaten und Rezepteanleitugn damit User weiss wie Gericht zubereiten
-    # -
     with st.expander("Zutaten"):
         for line in r.get("ingredientLines", []):
             st.write(f"- {line}")
@@ -129,9 +120,8 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
         for step in instr_list:
             st.write(f"- {step}")
 
-# -
 # 3 Spalten für Frühstück, Mittag- + Abendessen
-# -
+# ----------------
 cols = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
@@ -143,6 +133,7 @@ for _, mtype in meals:
         st.session_state[seed_key] = int(time.time()*1000) + random.randint(0, 999) #Speichert den Seed im Session-State + Nutzt den aktuellen Zeitstempel in Millisekunden + eine Zufallszahl
 
 # Für jede Mahlzeit: Überschrift, Rezepte laden, Slider um mehrere Rezepte anzuzeigen und Visualisierung darzustellen
+#-----------
 for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
