@@ -13,10 +13,3 @@ gpxpy
 joblib
 scikit-learn
 
-
-
-# Optional: fixe Versionen für Reproduzierbarkeit
-# streamlit>=1.0.0
-# pandas>=1.5.0
-# gpxpy>=1.6.0
-# requests>=2.28.
