@@ -2,7 +2,7 @@ import os #bindet Python "os"-Modul ein, mit dem wir das Betriebssystem-Funktion
 import streamlit as st #lädt Stramlitrahmen und gibt ihm st als alias, damit Komponenten einfach auf App platziert werden können
 import requests #wird benötigt um requests an APIs zu senden und Antworten zu verarbeiten
 import matplotlib.pyplot as plt #Importiert marplotlibs Plot-API unter alias plt, um Grafiken zu erzeugen und in Stremlit einzubinden
-import random, time
+import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu mischen unt time für Zeitstemptel zur Initailsierung stabiler Seeds
 
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
@@ -40,31 +40,23 @@ DISH_TYPES = {
 # Fetch-Hilfsfunktion: Rezepte aus Edamam laden
 # -
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
-def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
-    # 1) Anfrage-Parameter aufbauen
-    params = {
-        "type": "public",
-        "app_id": APP_ID,
-        "app_key": APP_KEY,
-        "mealType": meal_type
-    }
-    for d in diets:
+def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels, seed dient als Initialisierung für Zufallsgenerator, um gefundene Rezeptliste vor Kürzen zu mischen
+    # 1) Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
+    params = {"type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
+    for d in diets: #nimmt die Diätpräferenz welche der Nutzer in der Sidebar auwählt in kauf
         params.setdefault("diet", []).append(d)
-    for h in healths:
+    for h in healths:    #same für Ernährungsprägerenzen^
         params.setdefault("health", []).append(h)
-    for dt in DISH_TYPES.get(meal_type, []):
+    for dt in DISH_TYPES.get(meal_type, []): #sagt API nach welchen Essenstypen es suchen soll
         params.setdefault("dishType", []).append(dt)
-    params["field"] = [
-        "uri", "label", "image", "yield",
-        "ingredientLines", "calories", "totalNutrients", "instructions"
-    ]
+    params["field"] = ["uri", "label", "image", "yield","ingredientLines", "calories", "totalNutrients", "instructions"]
     headers = {"Edamam-Account-User": USER_ID}
 
-    # 2) API-Anfrage
+    # Sendet die API-Anfrage mit Parametern und Headern (Timeout 5 s) und löst bei Fehlern eine Ausnahme aus.
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
 
-    # 3) Hits extrahieren, mischen, und auf max_results beschränken
+    # 3) Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
     hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
     return hits[:max_results]
@@ -143,12 +135,12 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
 cols = st.columns(3)
 meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinner")]
 
-#Für jeden Mahlzeit Typen einen eigenen Seed legen, wenn noch keiner existiert
+#Für jeden Mahlzeit Typen einen eigenen Seed legen, wenn noch keiner existiert, um bilder zu ändern ohne dabei die anderen zu Ändern
 for _, mtype in meals:
     seed_key = f"seed_{mtype}"
     if seed_key not in st.session_state:
         # z.B. aus timestamp + Zufall, bleibt stabil bis zum Neuladen
-        st.session_state[seed_key] = int(time.time()*1000) + random.randint(0, 999)
+        st.session_state[seed_key] = int(time.time()*1000) + random.randint(0, 999) #Speichert den Seed im Session-State + Nutzt den aktuellen Zeitstempel in Millisekunden + eine Zufallszahl
 
 # Für jede Mahlzeit: Überschrift, Rezepte laden, Slider um mehrere Rezepte anzuzeigen und Visualisierung darzustellen
 for (label, mtype), col in zip(meals, cols):
@@ -157,7 +149,7 @@ for (label, mtype), col in zip(meals, cols):
         seed_key = f"seed_{mtype}" # holt den individuellen Seed
         recs = fetch_recipes(mtype, sel_diets, sel_health,seed=st.session_state[seed_key]) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
         if not recs:
-            st.info("Keine passenden Rezepte gefunden.")
+            st.info("Keine passenden Rezepte gefunden.") #Fehlermeldung falls keine Rezepte gefunden wurden
             continue
         # Slider zur Auswahl der geladenen Rezepte, damit man sich was aussuchen kann, um grössere Variabilität zu haben
         idx = st.slider("Wähle Rezept", 1, len(recs), key=f"slider_{mtype}")
