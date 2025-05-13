@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import urllib.parse
-import random  # neu importieren
+import random
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Seiten-Config
@@ -22,7 +22,8 @@ if grundumsatz is None or workout_calories is None:
     st.error("Grundumsatz oder Workout-Kalorien fehlen – bitte zuerst Home und Vor-Workout durchlaufen.")
     st.stop()
 
-total_cal = grundumsatz + workout_calories
+total_cal   = grundumsatz + workout_calories
+per_meal_cal = int(total_cal / 3)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1) Listen aus TheMealDB laden (Categories, Areas, Ingredients)
@@ -68,10 +69,12 @@ if params:
 else:
     meals = []
 
-st.header(f"Gefundene Rezepte: {len(meals)}")
+st.markdown("---")
+st.markdown(f"**Täglicher Gesamtbedarf:** {int(total_cal)} kcal")
+st.markdown(f"**Ziel pro Mahlzeit:** ~{per_meal_cal} kcal")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4) Helper: Meal-Details abrufen
+# 4) Details abrufen
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data
 def get_meal_details(idMeal: str) -> dict:
@@ -80,47 +83,41 @@ def get_meal_details(idMeal: str) -> dict:
     return data[0] if data else {}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 5) Kalorien-Übersicht und Verteilung
+# 5) Drei-Spalten-Layout: Frühstück, Mittag, Abend
 # ─────────────────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown(f"**Täglicher Gesamtbedarf:** {int(total_cal)} kcal")
+col_breakfast, col_lunch, col_dinner = st.columns(3)
+meal_columns = [
+    ("Frühstück", col_breakfast),
+    ("Mittagessen", col_lunch),
+    ("Abendessen", col_dinner)
+]
 
-# teile das Tagesziel in drei gleiche Mahlzeiten auf
-per_meal_cal = int(total_cal / 3)
-st.markdown(f"**Kalorien pro Mahlzeit:** ~{per_meal_cal} kcal")
+for meal_label, column in meal_columns:
+    with column:
+        st.header(f"{meal_label}\n~{per_meal_cal} kcal")
+        if not meals:
+            st.write("Keine Rezepte gefunden.")
+            continue
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 6) Empfehlungen: Frühstück, Mittagessen, Abendessen
-# ─────────────────────────────────────────────────────────────────────────────
-meal_times = [("Frühstück", "Breakfast"), ("Mittagessen", "Lunch"), ("Abendessen", "Dinner")]
+        # bis zu 3 zufällige, eindeutige Rezepte auswählen
+        picks = random.sample(meals, k=min(3, len(meals)))
+        for m in picks:
+            details = get_meal_details(m["idMeal"])
+            if not details:
+                continue
 
-for label, _ in meal_times:
-    st.subheader(label + f" (~{per_meal_cal} kcal)")
-    if not meals:
-        st.write("Keine Rezepte gefunden.")
-        continue
-
-    # zufälliges Rezept wählen (Sie können hier auch nach Kategorie filtern)
-    meal = random.choice(meals)
-    details = get_meal_details(meal["idMeal"])
-    if not details:
-        st.write("Details konnten nicht geladen werden.")
-        continue
-
-    st.markdown(f"**{details['strMeal']}**")
-    st.image(details["strMealThumb"], use_container_width=True)
-    st.markdown(
-        f"**Kategorie:** {details['strCategory']}  •  "
-        f"**Region:** {details['strArea']}"
-    )
-    st.markdown("**Anleitung:**")
-    st.write(details["strInstructions"])
-
-    # Zutatenliste
-    ingreds = []
-    for i in range(1, 21):
-        ing  = details.get(f"strIngredient{i}")
-        meas = details.get(f"strMeasure{i}")
-        if ing and ing.strip():
-            ingreds.append(f"- {meas.strip()} {ing.strip()}")
-    st.markdown("**Zutaten:**\n" + "\n".join(ingreds))
+            st.subheader(details["strMeal"])
+            st.image(details["strMealThumb"], use_container_width=True)
+            st.markdown(
+                f"**Kategorie:** {details['strCategory']}  •  "
+                f"**Region:** {details['strArea']}"
+            )
+            # Zutaten kurz anzeigen
+            ingreds = []
+            for i in range(1, 21):
+                ing  = details.get(f"strIngredient{i}")
+                meas = details.get(f"strMeasure{i}")
+                if ing and ing.strip():
+                    ingreds.append(f"{meas.strip()} {ing.strip()}")
+            st.markdown("**Zutaten:** " + ", ".join(ingreds[:5]) + ("…" if len(ingreds)>5 else ""))
+            st.markdown("---")
