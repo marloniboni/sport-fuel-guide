@@ -22,34 +22,47 @@ NUTRITION_URL = "https://api.api-ninjas.com/v1/nutrition"
 # ─────────────────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def fetch_recipes(query: str, number: int = 3) -> list[dict]:
-    """Holt bis zu `number` Rezepte für die Suchanfrage `query`."""
-    params = {"query": query, "limit": number}
-    resp = requests.get(RECIPE_URL, headers=HEADERS, params=params, timeout=5)
-    resp.raise_for_status()
-    return resp.json()  # Liste von {title, ingredients, instructions, servings}
+    """
+    Holt bis zu `number` Rezepte für die Suchanfrage `query`, indem
+    jeweils ein Rezept mit steigendem offset abgefragt wird.
+    """
+    recipes = []
+    for offset in range(number):
+        params = {"query": query, "offset": offset}
+        resp = requests.get(RECIPE_URL, headers=HEADERS, params=params, timeout=5)
+        # Bei 400 könnte offset zu groß sein oder limit genutzt worden sein:
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            break
+        # Data ist eine Liste; nehmen ersten Eintrag
+        recipes.append(data[0])
+    return recipes
 
 @st.cache_data(show_spinner=False)
 def estimate_calories(ingredients: str) -> int:
     """
-    Zerlegt den `ingredients`-String (Semikolon-separiert),
-    fragt jede Zutat einmal an die Nutrition-API und summiert die kcal.
+    Zerlegt `ingredients` (Semikolon-separiert) und
+    summiert die Kalorien jedes Items via Nutrition-API.
     """
     total = 0
-    # Zutaten-Split an Semikolon
     for part in ingredients.split(";"):
         item = part.strip()
         if not item:
             continue
-        # Nutrition-Request
         try:
-            r = requests.get(NUTRITION_URL, headers=HEADERS, params={"query": item}, timeout=5)
+            r = requests.get(
+                NUTRITION_URL,
+                headers=HEADERS,
+                params={"query": item},
+                timeout=5
+            )
             r.raise_for_status()
             data = r.json()
-            # data ist Liste von Einträgen, wir nehmen das erste
+            # data ist Liste von Nutrition-Infos
             if data:
-                total += data[0].get("calories", 0)
+                total += int(data[0].get("calories", 0))
         except Exception:
-            # im Fehlerfall diese Zutat überspringen
             continue
     return total
 
@@ -57,10 +70,6 @@ def estimate_calories(ingredients: str) -> int:
 # 3) Streamlit-Setup
 # ─────────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Meal Plan mit API-Ninjas", layout="wide")
-
-# Simuliere Session-State (in deinem echten Code wird das gesetzt)
-# st.session_state["grundumsatz"] = 2000
-# st.session_state["workout_calories"] = 500
 
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
@@ -83,7 +92,7 @@ for (label, term), col in zip(queries, cols):
     with col:
         st.header(f"{label} (~{per_meal_cal} kcal)")
 
-        # 4.1) Rezepte holen
+        # 4.1) Rezepte holen (offset-basiert statt limit)
         try:
             recipes = fetch_recipes(term, number=3)
         except Exception as e:
@@ -104,7 +113,8 @@ for (label, term), col in zip(queries, cols):
             kcal_est = estimate_calories(ingredients)
 
             st.subheader(f"{title} — ca. {kcal_est} kcal")
-            st.markdown(f"**Portionen:** {servings}")
+            if servings:
+                st.markdown(f"**Portionen:** {servings}")
             st.markdown("**Zutaten:**")
             for ing in ingredients.split(";")[:5]:
                 st.write(f"- {ing.strip()}")
