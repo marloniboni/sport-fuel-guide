@@ -20,12 +20,12 @@ V2_URL = "https://api.edamam.com/api/recipes/v2"
 # -
 # Sidebar: Allergien & Ernährungspräferenzen
 # -
-st.sidebar.markdown("## Allergien & Ernährungspräferenzen")
+st.sidebar.markdown("## Diät- & Ernährungspräferenzen")
 # Mögliche Diät- und Ernährungspräferenzen laut Edamam
 diet_opts = ["balanced","high-fiber","high-protein","low-carb","low-fat","low-sodium"] #sind auf englisch da direkt mit API verbunden, welche auch auf Englisch ist
 health_opts = ["alcohol-free","dairy-free","egg-free","gluten-free","paleo","vegetarian","vegan"] #same here (https://developer.edamam.com//admin/applications/1409625691921)
 # Auswahlfelder für Nutzerpräferenzen je nach Diät und Ernährungspräferenzen
-sel_diets  = st.sidebar.multiselect("Diät-labels", diet_opts) # erzeugt Auswahlfelder für Diätpräferenz labels, die Nutzer anklicken kann (https://github.com/daniellewisdl/streamlit-cheat-sheet/blob/master/app.py)
+sel_diets  = st.sidebar.multiselect("Diät", diet_opts) # erzeugt Auswahlfelder für Diätpräferenz labels, die Nutzer anklicken kann (https://github.com/daniellewisdl/streamlit-cheat-sheet/blob/master/app.py)
 sel_health = st.sidebar.multiselect("Ernährungspräferenzen", health_opts) #same here für Ernährungspräferenzen 
 
 # Ordnet jedem Mahlzeittyp, die Edamam-API erwartet, eine Liste von Labels zu, damit verschiedene Ergebnisse kommen
@@ -40,56 +40,54 @@ DISH_TYPES = {
 # -
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
 def fetch_recipes(meal_type, diets, healths, max_results=5): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
-    # Basis-Parameter für die Anfrage
+    # Basis-Parameter für die Anfrage bei der API (https://developer.edamam.com/edamam-docs-recipe-api)
     params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
-    # Füge ausgewählte diet-Labels hinzu
+    # Fügt ausgewählte Diät-Labels hinzu
     for d in diets:  params.setdefault("diet", []).append(d)
-    # Füge ausgewählte health-Labels hinzu
+    # Fügt ausgewählte Ernährungspräferenz-Labels hinzu
     for h in healths: params.setdefault("health", []).append(h)
-    # Füge DishType-Labels basierend auf meal_type hinzu
+    # Fügt Mahlzeittypen-Labels basierend auf Mahlzeittyp hinzu
     for dt in DISH_TYPES.get(meal_type,[]): params.setdefault("dishType", []).append(dt)
-    # Liste der gewünschten Felder aus der API-Antwort
+    # Liste der Felder aus der API-Antwort
     params["field"] = ["uri","label","image","yield","ingredientLines","calories","totalNutrients","instructions"]
-    # Benutzer-Header für Edamam-Account
+    # Benutzer-Header für Edamam-Account (stackoverflow)
     headers = {"Edamam-Account-User": USER_ID}
-    # GET-Request mit Timeout
+    # Gibt Anfrage mit Auszeit wieder, da nur 5 gewünscht sind
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
-    # Extrahiere Rezepte aus der Antwort
+    # Extrahiert Rezepte aus der Antwort
     hits = [h["recipe"] for h in r.json().get("hits",[])]
     return hits[:max_results]
 
-# ----------------------------------------
-# Prüfen, ob nötige Werte im Session-State vorhanden sind
-# ----------------------------------------
-# Grundumsatz und Kalorienverbrauch müssen aus vorheriger App-Seite kommen
+# -
+# Prüft, ob nötige Werte im vorherigen Seiten schon vorhanden sind, ansonsten Fehlermeldung dass diese noch ausgefüllt werden müssen
+# -
+# Grundumsatz und Kalorienverbrauch müssen aus vorheriger App-Seite kommen, sonst gibt es keine Berechnungsgrundlage
 if "grundumsatz" not in st.session_state or "workout_calories" not in st.session_state:
     st.error("Bitte zuerst Home & Vor-Workout ausfüllen.")
     st.stop()
 
-# Gesamt- und pro-Mahlzeit-Kalorien berechnen
+# Berechnung der Gesamt- und pro Mahlzeit -Kalorien
 total_cal = st.session_state.grundumsatz + st.session_state.workout_calories
 per_meal  = total_cal // 3
 
-# Ausgabe des Bedarfs
+# Ausgabe des Bedarfs,der aus Vor-Workout und Home genommen und addiert wird
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 st.markdown("---")
 
-# ----------------------------------------
-# Funktion zum Rendern einer Rezeptkarte
-# ----------------------------------------
-def render_recipe_card(r, key_prefix):
-    """
-    Zeigt Titel, Bild, Kalorien, Makronährstoffe und Zutaten/Anleitung im Expander an.
-    """
-    # Titel und Bild
+# -
+# Funktion zur Ausgabe der Rezeptkarte
+# -
+def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährstoffe und Zutaten/Anleitung im Expander an.
+
+    # Titel und Bild aus API
     title    = r.get("label", "–")
     image    = r.get("image")
     total_c  = r.get("calories", 0)
-    # Yield: Anzahl Portionen insgesamt
+    # Yield: Anzahl Portionen insgesamt indem es die Totale Kalorienanzahl die benötigt wird, durch die des Rezeptes rechnet
     yield_n  = r.get("yield", 1) or 1
     per_serv = total_c / yield_n
-    # Berechne, wie viele Portionen nötig sind, um pro_meal kcal zu erreichen
+    # Berechnet, wie viele Portionen nötig sind, um pro Mahlzeit kcal zu erreichen
     portions = per_meal / per_serv if per_serv > 0 else None
 
     st.markdown(f"**{title}**")
@@ -102,9 +100,9 @@ def render_recipe_card(r, key_prefix):
     else:
         st.markdown(f"Kalorien gesamt: {total_c} kcal")
 
-    # ----------------------------------------
+    # -
     # Makronährstoff-Chart
-    # ----------------------------------------
+    # -
     nut = r.get("totalNutrients", {})
     prot = nut.get("PROCNT", {}).get("quantity", 0) / yield_n
     fat  = nut.get("FAT", {}).get("quantity", 0) / yield_n
