@@ -14,36 +14,32 @@ APP_ID   = os.getenv("EDAMAM_APP_ID", "") #APP_ID von EDAMAM welche in Secret ab
 APP_KEY  = os.getenv("EDAMAM_APP_KEY", "") #APP_KEY von EDAMAM die in Secret abgespeichert ist (https://developer.edamam.com/admin/applications)
 USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "") #USER_ID von EDAMAM die in Secret abgespeichert ist (https://developer.edamam.com/admin/applications)
 
-# Basis-URL für Edamam API v2
+# Basis-URL für Edamam API Version 2
 V2_URL = "https://api.edamam.com/api/recipes/v2"
 
-# ----------------------------------------
+# -
 # Sidebar: Allergien & Ernährungspräferenzen
-# ----------------------------------------
+# -
 st.sidebar.markdown("## Allergien & Ernährungspräferenzen")
-# Mögliche Diet- und Health-Labels laut Edamam
-diet_opts = ["balanced","high-fiber","high-protein","low-carb","low-fat","low-sodium"]
-health_opts = ["alcohol-free","dairy-free","egg-free","gluten-free","paleo","vegetarian","vegan"]
-# Auswahlfelder für Nutzerpräferenzen
-sel_diets  = st.sidebar.multiselect("Diet labels", diet_opts)
-sel_health = st.sidebar.multiselect("Health labels", health_opts)
+# Mögliche Diät- und Ernährungspräferenzen laut Edamam
+diet_opts = ["balanced","high-fiber","high-protein","low-carb","low-fat","low-sodium"] #sind auf englisch da direkt mit API verbunden, welche auch auf Englisch ist
+health_opts = ["alcohol-free","dairy-free","egg-free","gluten-free","paleo","vegetarian","vegan"] #same here (https://developer.edamam.com//admin/applications/1409625691921)
+# Auswahlfelder für Nutzerpräferenzen je nach Diät und Ernährungspräferenzen
+sel_diets  = st.sidebar.multiselect("Diät-labels", diet_opts) # erzeugt Auswahlfelder für Diätpräferenz labels, die Nutzer anklicken kann (https://github.com/daniellewisdl/streamlit-cheat-sheet/blob/master/app.py)
+sel_health = st.sidebar.multiselect("Ernährungspräferenzen", health_opts) #same here für Ernährungspräferenzen 
 
-# DishType-Mapping für jede Mahlzeit (wird an API-Parameter angehängt)
+# Ordnet jedem Mahlzeittyp, die Edamam-API erwartet, eine Liste von Labels zu, damit verschiedene Ergebnisse kommen
 DISH_TYPES = {
     "Breakfast": ["Cereals","Pancake","Bread","Main course"],
     "Lunch":     ["Main course","Salad","Sandwiches","Side dish","Soup"],
     "Dinner":    ["Main course","Side dish","Soup"]
 }
 
-# ----------------------------------------
+# -
 # Fetch-Hilfsfunktion: Rezepte aus Edamam laden
-# ----------------------------------------
-@st.cache_data(ttl=3600)
-def fetch_recipes(meal_type, diets, healths, max_results=5):
-    """
-    Ruft Rezepte von Edamam basierend auf mealType, diet- und health-Labels ab.
-    Ergebnisse werden für 1 Stunde gecached.
-    """
+# -
+@st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
+def fetch_recipes(meal_type, diets, healths, max_results=5): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
     # Basis-Parameter für die Anfrage
     params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
     # Füge ausgewählte diet-Labels hinzu
