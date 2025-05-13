@@ -122,7 +122,9 @@ events    = sorted(
 )
 
 # Berechnet benötigte Kalorien und Flüssigkeit pro Event
-req_cal   = cal_burn / len(events) if events else 0
+eat_events = [t for t in events if t % eat_int == 0]
+req_cal = cal_burn / len(eat_events) if eat_events else 0
+
 req_fluid = fluid_loss / len(events) if events else 0
 
 # Erstellt eine Tabelle mit Minuten und Empfehlung pro Event
