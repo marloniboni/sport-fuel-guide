@@ -1,25 +1,18 @@
-import os
-import streamlit as st
-import requests
-import matplotlib.pyplot as plt
+import os #bindet Python "os"-Modul ein, mit dem wir das Betriebssystem-Funktionnen nutzen können
+import streamlit as st #lädt Stramlitrahmen und gibt ihm st als alias, damit Komponenten einfach auf App platziert werden können
+import requests #wird benötigt um requests an APIs zu senden und Antworten zu verarbeiten
+import matplotlib.pyplot as plt #Importiert marplotlibs Plot-API unter alias plt, um Grafiken zu erzeugen und in Stremlit einzubinden
 
-# ----------------------------------------
 # Seitenkonfiguration
-# ----------------------------------------
-# Muss ganz am Anfang stehen, um Titel und Layout festzulegen
-st.set_page_config(page_title="Meal Plan", layout="wide")
+st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
-# ----------------------------------------
-# Edamam API-Credentials einlesen
-# ----------------------------------------
-# Liest IDs und Schlüssel aus Umgebungsvariablen bzw. Streamlit-Secrets
-APP_ID   = os.getenv("EDAMAM_APP_ID", "")
-APP_KEY  = os.getenv("EDAMAM_APP_KEY", "")
-USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "")
-# Wenn eine Credential fehlt, wird ein Fehler angezeigt und die App gestoppt
-if not (APP_ID and APP_KEY and USER_ID):
-    st.error("Bitte setze EDAMAM_APP_ID, EDAMAM_APP_KEY und EDAMAM_ACCOUNT_USER in deinen Secrets!")
-    st.stop()
+# -
+# Edamam API-Anmeldeinformationen werden eingelesen
+# -
+# Liest IDs und Schlüssel aus Umgebungsvariablen bzw. Streamlit-Secrets https://www.geeksforgeeks.org/python-os-getenv-method/?utm_source=chatgpt.com
+APP_ID   = os.getenv("EDAMAM_APP_ID", "") #APP_ID von EDAMAM welche in Secret abgespeichert ist (https://developer.edamam.com/admin/applications)
+APP_KEY  = os.getenv("EDAMAM_APP_KEY", "") #APP_KEY von EDAMAM die in Secret abgespeichert ist (https://developer.edamam.com/admin/applications)
+USER_ID  = os.getenv("EDAMAM_ACCOUNT_USER", "") #USER_ID von EDAMAM die in Secret abgespeichert ist (https://developer.edamam.com/admin/applications)
 
 # Basis-URL für Edamam API v2
 V2_URL = "https://api.edamam.com/api/recipes/v2"
