@@ -41,28 +41,32 @@ DISH_TYPES = {
 # Fetch-Hilfsfunktion: Rezepte aus Edamam laden
 # -
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
-def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0): #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
-    hits = [h["recipe"] for h in r.json().get("hits",[])]
-    random.Random(seed).shuffle(hits)     #mischt nur die bereits gefilterten Rezepte
-    return hits[:max_results]              #gibt max_results Rezepte aus dieser zufälligen Reihenfolge
-    # Basis-Parameter für die Anfrage bei der API (https://developer.edamam.com/edamam-docs-recipe-api)
-    params = {"type":"public","app_id":APP_ID,"app_key":APP_KEY,"mealType":meal_type}
-    # Fügt ausgewählte Diät-Labels hinzu
-    for d in diets:  params.setdefault("diet", []).append(d)
-    # Fügt ausgewählte Ernährungspräferenz-Labels hinzu
-    for h in healths: params.setdefault("health", []).append(h)
-    # Fügt Mahlzeittypen-Labels basierend auf Mahlzeittyp hinzu
-    for dt in DISH_TYPES.get(meal_type,[]): params.setdefault("dishType", []).append(dt)
-    # Liste der Felder aus der API-Antwort
-    params["field"] = ["uri","label","image","yield","ingredientLines","calories","totalNutrients","instructions"]
-    # Benutzer-Header für Edamam-Account (stackoverflow)
+def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels
+    # 1) Anfrage-Parameter aufbauen
+    params = {
+        "type": "public",
+        "app_id": APP_ID,
+        "app_key": APP_KEY,
+        "mealType": meal_type
+    }
+    for d in diets:
+        params.setdefault("diet", []).append(d)
+    for h in healths:
+        params.setdefault("health", []).append(h)
+    for dt in DISH_TYPES.get(meal_type, []):
+        params.setdefault("dishType", []).append(dt)
+    params["field"] = [
+        "uri", "label", "image", "yield",
+        "ingredientLines", "calories", "totalNutrients", "instructions"
+    ]
     headers = {"Edamam-Account-User": USER_ID}
-    # Gibt Anfrage mit Auszeit wieder, da nur 5 gewünscht sind
+
+    # 2) API-Anfrage
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
-    # Extrahiert Rezepte aus der Antwort
-    # Rezepte extrahieren, mischen und auf max_results beschränken
-    hits = [h["recipe"] for h in r.json().get("hits",[])]
+
+    # 3) Hits extrahieren, mischen, und auf max_results beschränken
+    hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
     return hits[:max_results]
 
