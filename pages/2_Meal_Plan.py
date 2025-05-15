@@ -7,6 +7,12 @@ import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
+# Seitenkonfiguration
+st.set_page_config(page_title="Meal Plan", layout="wide")  # legt Titel von Browser-Tab fest und Layout für volle Breite
+
+# → Hier den Seitentitel einfügen
+st.title("Dein persönlicher Essens-Plan")
+
 # Edamam API-Anmeldeinformationen werden eingelesen
 # -
 # Liest IDs und Schlüssel aus Umgebungsvariablen bzw. Streamlit-Secrets https://www.geeksforgeeks.org/python-os-getenv-method/?utm_source=chatgpt.com
