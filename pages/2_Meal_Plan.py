@@ -42,7 +42,7 @@ DISH_TYPES = {
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
 def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels, seed dient als Initialisierung für Zufallsgenerator, um gefundene Rezeptliste vor Kürzen zu mischen
     # Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
-    params = {"q": "","type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
+    params = {"q": meal_type.lower(),"type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
     for d in diets: #nimmt die Diätpräferenz welche der Nutzer in der Sidebar auwählt in kauf
         params.setdefault("diet", []).append(d)
     for h in healths:    #same für Ernährungsprägerenzen^
