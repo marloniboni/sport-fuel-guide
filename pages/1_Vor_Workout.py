@@ -211,7 +211,7 @@ if snack_query:
             with c1:
                 st.markdown(f"**{desc}** — {gram_serv:.0f} g → **{kcal_serv:.0f} kcal**, "
                             f"**{carb_serv:.0f} g Carbs**")
-            if c2.button("++", key=f"add_{fdc}"):
+            if c2.button("+", key=f"add_{fdc}"):
                 if not any(item["fdc"]==fdc for item in st.session_state.cart):
                     st.session_state.cart.append({
                         "fdc":        fdc,
