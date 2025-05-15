@@ -47,7 +47,7 @@ def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Reze
         params.setdefault("diet", []).append(d)
     for h in healths:    #same für Ernährungsprägerenzen^
         params.setdefault("health", []).append(h)
-   # Nur erlaubte dishType-Labels verwenden
+   # Nur erlaubte dishType-Labels verwenden + sagt API nach welchen Essenstypen es suchen soll
     valid_dt = [dt for dt in DISH_TYPES.get(meal_type, []) if dt in ALLOWED_DISH_TYPES]
     if valid_dt:
         params["dishType"] = valid_dt
