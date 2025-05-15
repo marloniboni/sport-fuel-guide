@@ -7,7 +7,7 @@ import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
-# → Hier den Seitentitel einfügen
+# Seitentitel 
 st.title("Dein persönlicher Essens-Plan")
 
 # Edamam API-Anmeldeinformationen werden eingelesen
@@ -42,7 +42,7 @@ DISH_TYPES = {
 @st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
 def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels, seed dient als Initialisierung für Zufallsgenerator, um gefundene Rezeptliste vor Kürzen zu mischen
     # Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
-    params = {"type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
+    params = {"q": "","type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
     for d in diets: #nimmt die Diätpräferenz welche der Nutzer in der Sidebar auwählt in kauf
         params.setdefault("diet", []).append(d)
     for h in healths:    #same für Ernährungsprägerenzen^
@@ -121,11 +121,11 @@ def render_recipe_card(r, key_prefix): #Zeigt Titel, Bild, Kalorien, Makronährs
     ax.set_title("Makros")
     st.pyplot(fig)
 
-    # Zutaten und Rezepteanleitugn damit User weiss wie Gericht zubereiten
+    # Zutaten und Rezepteanleitugn damit User weiss wie Gericht zubereitet werden muss
     with st.expander("Zutaten"):
         for line in r.get("ingredientLines", []):
             st.write(f"- {line}")
-    with st.expander("Zutaten"): #gibt genaue Auflistung welche Zutaten benötigt werden
+    with st.expander("Anleitung"): #gibt genaue Auflistung welche Zutaten benötigt werden
         instr = r.get("instructions") or []
         instr_list = instr if isinstance(instr, list) else [instr]
         for step in instr_list:
