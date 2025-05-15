@@ -31,7 +31,7 @@ sel_health = st.sidebar.multiselect("Ernährungspräferenzen", health_opts) #sam
 
 # Ordnet jedem Mahlzeittyp, die Edamam-API erwartet, eine Liste von Labels zu, damit verschiedene Ergebnisse kommen
 DISH_TYPES = {
-    "Breakfast": ["Cereals","Pancake","Bread","Main course"],
+    "Breakfast": ["Cereals","Pancake","Bread","Main course","Cereals","Pancake","Bread","Main course","Oatmeal","Granola","Porridge","Smoothie","Yogurt","Eggs","Omelet","French toast","Bagel","Toast"],
     "Lunch":     ["Main course","Salad","Sandwiches","Side dish","Soup"],
     "Dinner":    ["Main course","Side dish","Soup"]
 }
