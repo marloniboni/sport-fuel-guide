@@ -47,15 +47,22 @@ def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Reze
         params.setdefault("diet", []).append(d)
     for h in healths:    #same für Ernährungsprägerenzen^
         params.setdefault("health", []).append(h)
-    for dt in DISH_TYPES.get(meal_type, []): #sagt API nach welchen Essenstypen es suchen soll
-        params.setdefault("dishType", []).append(dt)
+   # Nur erlaubte dishType-Labels verwenden
+    valid_dt = [dt for dt in DISH_TYPES.get(meal_type, []) if dt in ALLOWED_DISH_TYPES]
+    if valid_dt:
+        params["dishType"] = valid_dt
+        
     params["field"] = ["uri", "label", "image", "yield","ingredientLines", "calories", "totalNutrients", "instructions"]
     headers = {"Edamam-Account-User": USER_ID}
 
     #Sendet die API-Anfrage mit Parametern und Headern (Timeout 5 s) und löst bei Fehlern eine Ausnahme aus.
-    r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
-    r.raise_for_status()
-
+ try:
+        r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        st.error(f"Edamam API-Fehler: {e}")
+        return []
+        
     #Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
     hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
