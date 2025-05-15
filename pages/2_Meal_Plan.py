@@ -7,9 +7,6 @@ import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
-# Gültige Dish-Types laut Edamam-Doku
-ALLOWED_DISH_TYPES = {"Bread","Cereals","Main course","Pancake","Salad","Sandwiches","Side dish","Soup","Oatmeal","Granola","Porridge","Smoothie","Yogurt","Eggs","Omelet","French toast","Bagel","Toast"}
-
 # → Hier den Seitentitel einfügen
 st.title("Dein persönlicher Essens-Plan")
 
@@ -34,7 +31,7 @@ sel_health = st.sidebar.multiselect("Ernährungspräferenzen", health_opts) #sam
 
 # Ordnet jedem Mahlzeittyp, die Edamam-API erwartet, eine Liste von Labels zu, damit verschiedene Ergebnisse kommen
 DISH_TYPES = {
-    "Breakfast": ["Cereals","Pancake","Bread","Oatmeal","Porridge","Yogurt","Omelet","Toast"],
+    "Breakfast": ["Breakfat and brunch","Bread","Oatmeal","Porridge","Yogurt","Omelet","Toast"],
     "Lunch":     ["Main course","Salad","Sandwiches","Side dish","Soup"],
     "Dinner":    ["Main course","Side dish","Soup"]
 }
