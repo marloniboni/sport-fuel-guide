@@ -31,7 +31,7 @@ sel_health = st.sidebar.multiselect("Ernährungspräferenzen", health_opts) #sam
 
 # Ordnet jedem Mahlzeittyp, die Edamam-API erwartet, eine Liste von Labels zu, damit verschiedene Ergebnisse kommen
 DISH_TYPES = {
-    "Breakfast": ["Breakfat and brunch","Oatmeal","Toast"],
+    "Breakfast": ["Cereals","Pancake","Bread","Main course"],
     "Lunch":     ["Main course","Salad","Sandwiches","Side dish","Soup"],
     "Dinner":    ["Main course","Side dish","Soup"]
 }
@@ -39,43 +39,24 @@ DISH_TYPES = {
 
 #Fetch-Hilfsfunktion: Rezepte aus Edamam laden
 #----
-@st.cache_data(ttl=3600)
-def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):
-    # 1) Basis-Parameter
-    params = {
-        "type":     "public",
-        "app_id":   APP_ID,
-        "app_key":  APP_KEY,
-        "mealType": meal_type
-    }
-    for d in diets:
+@st.cache_data(ttl=3600) #speichert Kopien von Daten in Zwischenspeicher "chace" für 3600 Sekunden lang, um API-Calls zu reduzieren
+def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Rezepte von Edamam basierend auf Mahlzeittyp, Diät- + Ernährungspräferenz Labels, seed dient als Initialisierung für Zufallsgenerator, um gefundene Rezeptliste vor Kürzen zu mischen
+    # Parameter für Anfrage aufbauen basierden auf ID, Key, Essenstyp ^oben definiert
+    params = {"type": "public", "app_id": APP_ID, "app_key": APP_KEY, "mealType": meal_type}
+    for d in diets: #nimmt die Diätpräferenz welche der Nutzer in der Sidebar auwählt in kauf
         params.setdefault("diet", []).append(d)
-    for h in healths:
+    for h in healths:    #same für Ernährungsprägerenzen^
         params.setdefault("health", []).append(h)
-
-    #Nur erlaubte dishType-Labels verwenden
-    valid_dt = [
-        dt for dt in DISH_TYPES.get(meal_type, [])
-        if dt in ALLOWED_DISH_TYPES
-    ]
-    if valid_dt:
-        params["dishType"] = valid_dt
-
-    params["field"] = [
-        "uri", "label", "image", "yield",
-        "ingredientLines", "calories", "totalNutrients", "instructions"
-    ]
+    for dt in DISH_TYPES.get(meal_type, []): #sagt API nach welchen Essenstypen es suchen soll
+        params.setdefault("dishType", []).append(dt)
+    params["field"] = ["uri", "label", "image", "yield","ingredientLines", "calories", "totalNutrients", "instructions"]
     headers = {"Edamam-Account-User": USER_ID}
 
-    #API-Aufruf mit Fehler-Handling
-    try:
-        r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
-        r.raise_for_status()
-    except requests.HTTPError as e:
-        st.error(f"Edamam API-Fehler: {e}")
-        return []
+    #Sendet die API-Anfrage mit Parametern und Headern (Timeout 5 s) und löst bei Fehlern eine Ausnahme aus.
+    r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
+    r.raise_for_status()
 
-    # 4) Rezepte extrahieren, mischen, kürzen
+    #Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
     hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
     return hits[:max_results]
