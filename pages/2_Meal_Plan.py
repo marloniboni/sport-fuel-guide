@@ -56,7 +56,7 @@ def fetch_recipes(meal_type, diets, healths, max_results=5, seed=0):  #Ruft Reze
     r = requests.get(V2_URL, params=params, headers=headers, timeout=5)
     r.raise_for_status()
 
-    #Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
+#Hits extrahieren, mischen, und auf maximale Resulate, hier 5 beschränken
     hits = [h["recipe"] for h in r.json().get("hits", [])]
     random.Random(seed).shuffle(hits)
     return hits[:max_results]
