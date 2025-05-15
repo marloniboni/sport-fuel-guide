@@ -7,9 +7,6 @@ import random, time #random für Zufallzahlen (benötigt um Rezepte zufällig zu
 # Seitenkonfiguration
 st.set_page_config(page_title="Meal Plan", layout="wide") #legt Titel von Browser-Tab fest und Layout für volle Breite
 
-# Seitenkonfiguration
-st.set_page_config(page_title="Meal Plan", layout="wide")  # legt Titel von Browser-Tab fest und Layout für volle Breite
-
 # → Hier den Seitentitel einfügen
 st.title("Dein persönlicher Essens-Plan")
 
