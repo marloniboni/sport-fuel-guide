@@ -138,7 +138,7 @@ meals = [("Frühstück","Breakfast"),("Mittagessen","Lunch"),("Abendessen","Dinn
 
 #Für jeden Mahlzeit Typen einen eigenen Seed legen, wenn noch keiner existiert, um bilder zu ändern ohne dabei die anderen zu Ändern
 for _, mtype in meals:
-    seed_key = f"seed_{mtype}"
+    seed_key = f"seed_{mtype}" #https://docs.streamlit.io/develop/concepts/architecture/caching
     if seed_key not in st.session_state:
         # z.B. aus timestamp + Zufall, bleibt stabil bis zum Neuladen
         st.session_state[seed_key] = int(time.time()*1000) + random.randint(0, 999) #Speichert den Seed im Session-State + Nutzt den aktuellen Zeitstempel in Millisekunden + eine Zufallszahl
@@ -148,7 +148,7 @@ for _, mtype in meals:
 for (label, mtype), col in zip(meals, cols):
     with col:
         st.subheader(f"{label} (~{per_meal} kcal)")
-        seed_key = f"seed_{mtype}" # holt den individuellen Seed
+        seed_key = f"seed_{mtype}" # holt den individuellen Seed https://docs.streamlit.io/develop/concepts/architecture/caching
         recs = fetch_recipes(mtype, sel_diets, sel_health,seed=st.session_state[seed_key]) #holt Vorschläge aus Edamam API ansonsten wird Fehlermeldung angezeigt
         if not recs:
             st.info("Keine passenden Rezepte gefunden.") #Fehlermeldung falls keine Rezepte gefunden wurden
