@@ -67,9 +67,17 @@ if "grundumsatz" not in st.session_state or "workout_calories" not in st.session
 
 # Berechnung der Gesamt- und pro Mahlzeit -Kalorien
 total_cal = st.session_state.grundumsatz + st.session_state.workout_calories
-per_meal  = total_cal // 3
+# Snack-Kalorien aus Pre-Workout-Seite abziehen (Session-State "cart" wird dort befüllt)
+snack_cal = sum(item["kcal"] for item in st.session_state.get("cart", []))
+# Angepasster Tagesbedarf minus bereits konsumierter Snack-Kalorien
+total_cal = total_cal - snack_cal
+
+per_meal  = total_cal // 3   # jetzt bereits abzüglich aller Snacks
+st.sidebar.caption("Snacks aus Vor-Workout werden im Meal Plan abgezogen.")
 
 # Ausgabe des Bedarfs, der aus Vor-Workout und Home genommen und addiert wird
+if snack_cal:
+    st.markdown(f"**Snack-Kalorien (Vor-Workout):** –{snack_cal} kcal")
 st.markdown(f"**Täglicher Gesamtbedarf:** {total_cal} kcal  •  **pro Mahlzeit:** ~{per_meal} kcal")
 st.markdown("---")
 
